@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面向最近发展区的精准作业设计工具</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部标题栏 -->
+        <header class="app-header">
+            <h1>🎓 面向最近发展区的精准作业设计工具</h1>
+            <p class="subtitle">基于最近发展区（ZPD）理论，为不同层级学生生成差异化精准作业</p>
+        </header>
+
+        <!-- 步骤指示器 -->
+        <nav class="step-indicator" id="stepIndicator">
+            <div class="step active" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-label">选择知识点</div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-label">选择作业类型</div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-label">选择理论与信息</div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="4">
+                <div class="step-number">4</div>
+                <div class="step-label">确认提示词</div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="5">
+                <div class="step-number">5</div>
+                <div class="step-label">查看与调整作业</div>
+            </div>
+        </nav>
+
+        <!-- 内容区域 -->
+        <main class="step-content" id="stepContent">
+            <!-- Step 1: 选择知识点 -->
+            <section class="step-panel active" id="step1">
+                <h2>📚 请选择知识点</h2>
+                <p class="step-desc">从以下 41 个初中数学知识点中选择本次作业对应的知识点</p>
+                <div class="search-box">
+                    <input type="text" id="kpSearch" placeholder="🔍 搜索知识点（输入关键词过滤）..." autocomplete="off">
+                </div>
+                <div class="kp-grid" id="kpGrid">
+                    <!-- 动态填充 -->
+                </div>
+                <div class="selected-info" id="kpSelected" style="display:none;">
+                    已选择：<strong id="kpSelectedName"></strong>
+                </div>
+            </section>
+
+            <!-- Step 2: 选择作业类型 -->
+            <section class="step-panel" id="step2">
+                <h2>📝 请选择作业类型</h2>
+                <p class="step-desc">选择一种适合您教学需求的作业形态</p>
+                <div class="type-cards" id="typeCards">
+                    <!-- 动态填充 -->
+                </div>
+            </section>
+
+            <!-- Step 3: 选择理论与补充信息 -->
+            <section class="step-panel" id="step3">
+                <h2>🔧 选择理论框架与补充信息</h2>
+                <p class="step-desc" id="step3TypeName"></p>
+                <div class="form-group">
+                    <label for="theorySelect">理论框架 <span class="required">*</span></label>
+                    <select id="theorySelect">
+                        <option value="">-- 请选择理论 --</option>
+                    </select>
+                    <p class="field-hint" id="theoryHint"></p>
+                </div>
+                <div id="supplementFields">
+                    <!-- 动态填充 -->
+                </div>
+            </section>
+
+            <!-- Step 4: 确认提示词 -->
+            <section class="step-panel" id="step4">
+                <h2>📋 生成并确认提示词</h2>
+                <p class="step-desc">以下是基于您的选择生成的完整提示词，您可以编辑调整后确认</p>
+                <div class="prompt-layout">
+                    <div class="prompt-panel">
+                        <div class="prompt-header">
+                            <h3>📤 User Prompt（发送给 AI 的提示词）</h3>
+                            <span class="prompt-info" id="promptInfo"></span>
+                        </div>
+                        <textarea id="userPromptText" rows="20" placeholder="点击下方「生成提示词」按钮生成..."></textarea>
+                    </div>
+                    <div class="prompt-panel">
+                        <div class="prompt-header">
+                            <h3>🤖 System Prompt（系统角色设定）</h3>
+                        </div>
+                        <textarea id="systemPromptText" rows="10" readonly
+                                  placeholder="系统提示词将在生成时自动构建..."></textarea>
+                        <div class="prompt-meta" id="promptMeta"></div>
+                    </div>
+                </div>
+                <div class="step4-actions">
+                    <button class="btn btn-primary" id="btnGeneratePrompt" disabled>
+                        ✨ 生成提示词
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 5: 查看与调整三层次作业 -->
+            <section class="step-panel" id="step5">
+                <h2>📊 三层次差异化作业</h2>
+                <p class="step-desc">为三个最近发展区层级生成的差异化作业。您可以查看、编辑或重新生成每个层级的作业。</p>
+                <div class="generate-actions" id="generateActions">
+                    <button class="btn btn-primary btn-large" id="btnGenerateHomework">
+                        🚀 调用 DeepSeek 生成三层次作业
+                    </button>
+                    <span class="loading-text" id="generatingText" style="display:none;">
+                        ⏳ 正在生成中，请耐心等待（三个层级并行生成，约需 30-60 秒）...
+                    </span>
+                    <span class="loading-text" id="generatingError" style="display:none;color:#e74c3c;"></span>
+                </div>
+                <div class="zpd-tabs" id="zpdTabs" style="display:none;">
+                    <div class="tab-buttons" id="tabButtons">
+                        <!-- 动态填充 -->
+                    </div>
+                    <div class="tab-panels" id="tabPanels">
+                        <!-- 动态填充 -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 底部导航 -->
+        <footer class="step-footer">
+            <button class="btn btn-secondary" id="btnPrev" style="display:none;">← 上一步</button>
+            <div class="footer-spacer"></div>
+            <button class="btn btn-primary" id="btnNext">下一步 →</button>
+        </footer>
+    </div>
+
+    <!-- API 状态提示 -->
+    <div class="api-badge" id="apiBadge">
+        <span class="api-dot"></span>
+        <span id="apiBadgeText">检查 API...</span>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
