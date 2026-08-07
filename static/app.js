@@ -656,6 +656,7 @@ function renderTabs() {
 }
 
 // 层级 → ZPD 区 映射（前端推断，不依赖 AI 输出格式）
+// 值可以是单个字符串或数组（表示同时属于多个区）
 const LEVEL_ZONE_MAP = {
     bloom: {
         remember: 'distal', understand: 'distal',
@@ -664,7 +665,7 @@ const LEVEL_ZONE_MAP = {
     },
     solo: {
         prestructural: 'distal', unistructural: 'distal',
-        multistructural: 'proximal', relational: 'proximal',
+        multistructural: 'proximal', relational: ['proximal', 'existing'],
         extended_abstract: 'existing',
     },
 };
@@ -688,22 +689,40 @@ function _zoneIcon(zid) {
 }
 
 function _resolveZoneId(lvId, theoryId, fallbackZone) {
-    // 优先从前端映射推断
     const map = LEVEL_ZONE_MAP[theoryId];
-    if (map && map[lvId]) return map[lvId];
-    // 其次从后端 zone 对象获取
+    if (map && map[lvId]) {
+        const val = map[lvId];
+        // 数组取第一个作为主区（用于上色）
+        return Array.isArray(val) ? val[0] : val;
+    }
     if (fallbackZone && fallbackZone.zone_id) return fallbackZone.zone_id;
     return '';
 }
 
+function _resolveZoneIds(lvId, theoryId) {
+    const map = LEVEL_ZONE_MAP[theoryId];
+    if (map && map[lvId]) {
+        const val = map[lvId];
+        return Array.isArray(val) ? val : [val];
+    }
+    return [];
+}
+
 function _buildLevelCardHTML(lv, theoryId, zone) {
-    const zid = _resolveZoneId(lv.id, theoryId, zone);
-    const badgeClass = _zoneBadgeClass(zid);
+    const primaryZid = _resolveZoneId(lv.id, theoryId, zone);
+    const allZids = _resolveZoneIds(lv.id, theoryId);
     const content = state.editedContents[lv.id] !== undefined
         ? state.editedContents[lv.id]
         : (lv.content || '');
+
+    // 构建标签 HTML
+    const badges = allZids.map(function(zid) {
+        const bc = _zoneBadgeClass(zid);
+        return '<span class="btn btn-sm zone-badge ' + bc + '">' + _zoneIcon(zid) + ' ' + _zoneShortName(zid) + '</span>';
+    }).join(' ');
+
     return [
-        '<div class="zone-level-card zone-card-' + zid + '" id="levelCard_' + lv.id + '">',
+        '<div class="zone-level-card zone-card-' + primaryZid + '" id="levelCard_' + lv.id + '">',
         '  <div class="level-card-header">',
         '    <span class="level-order">' + lv.order + '</span>',
         '    <span class="level-name">' + escapeHtml(lv.name) + '</span>',
@@ -713,7 +732,7 @@ function _buildLevelCardHTML(lv, theoryId, zone) {
         '  <div class="level-card-actions">',
         '    <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>',
         '    <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>',
-        '    <span class="btn btn-sm zone-badge ' + badgeClass + '">' + _zoneIcon(zid) + ' ' + _zoneShortName(zid) + '</span>',
+        '    ' + badges,
         '  </div>',
         '</div>',
     ].join('\n');
