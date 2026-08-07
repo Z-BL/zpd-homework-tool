@@ -655,6 +655,20 @@ function renderTabs() {
     }
 }
 
+// 层级 → ZPD 区 映射（前端推断，不依赖 AI 输出格式）
+const LEVEL_ZONE_MAP = {
+    bloom: {
+        remember: 'distal', understand: 'distal',
+        apply: 'proximal', analyze: 'proximal',
+        evaluate: 'existing', create: 'existing',
+    },
+    solo: {
+        prestructural: 'distal', unistructural: 'distal',
+        multistructural: 'proximal', relational: 'proximal',
+        extended_abstract: 'existing',
+    },
+};
+
 function _zoneBadgeClass(zid) {
     if (zid === 'distal') return 'zone-badge-distal';
     if (zid === 'proximal') return 'zone-badge-proximal';
@@ -667,11 +681,24 @@ function _zoneShortName(zid) {
     return '现有发展区';
 }
 
-function _buildLevelCardHTML(lv, zone) {
-    const zid = zone.zone_id || '';
+function _zoneIcon(zid) {
+    if (zid === 'distal') return '🚀';
+    if (zid === 'proximal') return '🎯';
+    return '✅';
+}
+
+function _resolveZoneId(lvId, theoryId, fallbackZone) {
+    // 优先从前端映射推断
+    const map = LEVEL_ZONE_MAP[theoryId];
+    if (map && map[lvId]) return map[lvId];
+    // 其次从后端 zone 对象获取
+    if (fallbackZone && fallbackZone.zone_id) return fallbackZone.zone_id;
+    return '';
+}
+
+function _buildLevelCardHTML(lv, theoryId, zone) {
+    const zid = _resolveZoneId(lv.id, theoryId, zone);
     const badgeClass = _zoneBadgeClass(zid);
-    const zoneIcon = zone.icon || '';
-    const zoneProfile = zone.student_profile || '';
     const content = state.editedContents[lv.id] !== undefined
         ? state.editedContents[lv.id]
         : (lv.content || '');
@@ -686,23 +713,23 @@ function _buildLevelCardHTML(lv, zone) {
         '  <div class="level-card-actions">',
         '    <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>',
         '    <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>',
-        '    <span class="btn btn-sm zone-badge ' + badgeClass + '">' + zoneIcon + ' ' + _zoneShortName(zid) + '</span>',
+        '    <span class="btn btn-sm zone-badge ' + badgeClass + '">' + _zoneIcon(zid) + ' ' + _zoneShortName(zid) + '</span>',
         '  </div>',
         '</div>',
     ].join('\n');
 }
 
-function _buildZoneGroupHTML(zone) {
+function _buildZoneGroupHTML(zone, theoryId) {
     const zid = zone.zone_id || '';
     const badgeClass = _zoneBadgeClass(zid);
-    const icon = zone.icon || '';
-    const label = escapeHtml(zone.zone_label || zid);
+    const icon = zone.icon || _zoneIcon(zid);
+    const label = escapeHtml(zone.zone_label || _zoneShortName(zid));
     const goal = escapeHtml(zone.goal || '');
     const levels = zone.levels || [];
 
     const levelCards = [];
     for (let li = 0; li < levels.length; li++) {
-        levelCards.push(_buildLevelCardHTML(levels[li], zone));
+        levelCards.push(_buildLevelCardHTML(levels[li], theoryId, zone));
         if (li < levels.length - 1) {
             levelCards.push('<div class="level-connector"><span>⬇ 递进</span></div>');
         }
@@ -758,31 +785,18 @@ function renderTheoryLevels() {
     if (zones.length > 0) {
         html += '<div class="zpd-zones-flow">';
         for (let zi = 0; zi < zones.length; zi++) {
-            html += _buildZoneGroupHTML(zones[zi]);
+            html += _buildZoneGroupHTML(zones[zi], theoryId);
             if (zi < zones.length - 1) {
                 html += '<div class="zone-connector"><span>⬇</span></div>';
             }
         }
         html += '</div>';
     } else {
-        // 回退：平铺层级卡片
+        // 回退：平铺层级卡片，前端推断 ZPD 区
         html += '<div class="zpd-zones-flow">';
         for (let i = 0; i < levels.length; i++) {
             const lv = levels[i];
-            const content = state.editedContents[lv.id] !== undefined
-                ? state.editedContents[lv.id]
-                : (lv.content || '');
-            html += '<div class="zone-level-card" id="levelCard_' + lv.id + '">';
-            html += '<div class="level-card-header">';
-            html += '<span class="level-order">' + lv.order + '</span>';
-            html += '<span class="level-name">' + escapeHtml(lv.name) + '</span>';
-            html += '<span class="level-desc">' + escapeHtml(lv.desc) + '</span>';
-            html += '</div>';
-            html += '<div class="level-card-content" id="content_' + lv.id + '">' + escapeHtml(content) + '</div>';
-            html += '<div class="level-card-actions">';
-            html += '<button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>';
-            html += '<button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>';
-            html += '</div></div>';
+            html += _buildLevelCardHTML(lv, theoryId, null);
             if (i < levels.length - 1) {
                 html += '<div class="level-connector"><span>⬇ 递进</span></div>';
             }
