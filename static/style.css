@@ -945,13 +945,22 @@ body {
     background: #f3f4f6;
     border-color: #d1d5db;
 }
+.zone-card-distal .level-card-header {
+    background: #e5e7eb;
+}
 .zone-card-proximal {
     background: #fff7ed;
     border-color: #fed7aa;
 }
+.zone-card-proximal .level-card-header {
+    background: #fed7aa;
+}
 .zone-card-existing {
     background: #f0fdf4;
     border-color: #bbf7d0;
+}
+.zone-card-existing .level-card-header {
+    background: #bbf7d0;
 }
 .zone-level-card:hover {
     box-shadow: 0 1px 8px rgba(0,0,0,0.06);
