@@ -93,8 +93,6 @@ HOMEWORK_TYPES = [
         "theories": [
             {"id": "polya", "name": "波利亚解题理论",
              "desc": "四阶段：理解问题 → 制订计划 → 执行计划 → 回顾反思"},
-            {"id": "apprenticeship", "name": "认知学徒制",
-             "desc": "通过建模、指导、搭建支架、清晰表达、反思、探索六个环节学习"},
             {"id": "toulmin", "name": "图尔敏论证模型",
              "desc": "论证六要素：主张、证据、推理、支持、反驳、限定词"}
         ],
@@ -115,9 +113,7 @@ HOMEWORK_TYPES = [
         "output_form": "智能体配置 + 对话规则（智能体链接/平台部署）",
         "theories": [
             {"id": "socratic", "name": "苏格拉底启发式学习",
-             "desc": "通过追问、澄清、反诘引导学生自己发现答案"},
-            {"id": "dialogue", "name": "人机对话式学习",
-             "desc": "通过结构化的对话交互促进深度学习和理解建构"}
+             "desc": "通过追问、澄清、反诘引导学生自己发现答案"}
         ],
         "supplement_fields": [
             {"key": "homework_topic", "label": "作业题目/主题", "type": "textarea",
@@ -136,11 +132,7 @@ HOMEWORK_TYPES = [
         "output_form": "多智能体角色配置 + 工作流（智能体链接/平台部署）",
         "theories": [
             {"id": "inquiry", "name": "探究式学习理论",
-             "desc": "学生通过提出问题→收集证据→形成解释→评价反思→交流发表的循环推进探究"},
-            {"id": "argumentation", "name": "科学论证理论",
-             "desc": "基于图尔敏模型，构建主张-证据-推理-支持-反驳的完整论证链"},
-            {"id": "collaborative", "name": "协作学习理论",
-             "desc": "通过角色分工与对话协作促进深度理解"}
+             "desc": "学生通过提出问题→收集证据→形成解释→评价反思→交流发表的循环推进探究"}
         ],
         "supplement_fields": [
             {"key": "inquiry_theme", "label": "探究主题", "type": "text",
