@@ -2,7 +2,7 @@
 提示词构建模块：根据作业类型填充提示词模板
 """
 
-from config import get_homework_type, get_theory
+from config import get_homework_type, get_theory, get_theory_levels
 
 
 def build_system_prompt(homework_type_id: str, theory_id: str) -> str:
@@ -71,6 +71,15 @@ def _build_potential_adaptive_prompt(
     teaching_goal = s.get("teaching_goal", "【未填写】")
     student_data = s.get("student_data", "【未填写】")
 
+    # 获取理论层级
+    levels = get_theory_levels(theory["id"])
+    levels_text = ""
+    for lv in levels:
+        levels_text += f"   {lv['order']}. {lv['name']}——{lv['desc']}\n"
+
+    theory_name = theory["name"]
+    n_levels = len(levels)
+
     return f"""我是{grade}{subject}的老师，正在设计一份基于最近发展区的精准作业。
 
 作业原题目是：
@@ -83,21 +92,48 @@ def _build_potential_adaptive_prompt(
 学生学情数据：
 {student_data}
 
-请依据最近发展区理论和{theory['name']}完成以下任务：
+请依据最近发展区理论和{theory_name}完成以下任务：
 
-1. 判断学生得分情况，按照掌握程度划分为三个层级：
-   - 现有发展区（已掌握，得分率 0.7-1.0）
-   - 最近发展区（需支持，得分率 0.3-0.7）
-   - 远端发展区（未掌握，得分率 0-0.3）
+---
+【理论框架说明】
+{theory_name}将认知过程分为{n_levels}个层级，由低到高依次为：
+{levels_text}
+这{n_levels}个层级之间有严格的递进关系：低层级是高层级的基础，每一层建立在前面所有层级之上。
+---
 
-2. 对于该知识点「{knowledge_point}」，请分别为三个发展区生成作业：
-   - 为**现有发展区**学生：出 3 道后继知识的题目（即下一步可以学什么），题目应具有挑战性，推动学生向更高层次发展
-   - 为**最近发展区**学生：出当前知识点下的认知进阶类题目（认知复杂度递进的一组题，3 道），由易到难排列
-   - 为**远端发展区**学生：先呈现当前知识点的简要知识讲解，再出 1 道该知识点最基础的题目
+【题目设计要求】
 
-3. 认知进阶依据{theory['name']}设计，确保题目难度有清晰的认知层级递进。
+1. 请为以上{n_levels}个层级各设计 1 道题目，共 {n_levels} 道题。
 
-4. 三个区间作业的具体比例可根据学情灵活调整，现有发展区和最近发展区原则上应占据主体。"""
+2. 题目间必须具备递进支撑关系：
+   - 第 1 题是最基础的入门题，帮助回忆/定位知识点
+   - 每一道题都是紧接着的下一道题的"认知支架"——前一题的解题思路或结论可以作为后一题的思考起点
+   - 从第 1 题到第{n_levels}题，认知复杂度逐步提升，每道题都在前一道的基础上增加新的思维挑战
+
+3. 按照{theory_name}的层级顺序依次编排题目，不得跳过任何层级。
+
+4. 所有数学公式、符号、表达式必须使用 LaTeX 格式：
+   - 行内公式用 $...$ 包裹（如 $x^2 + 2x + 1 = 0$）
+   - 独立公式用 $$...$$ 包裹
+   - 分数用 \\frac，根号用 \\sqrt，上下标用 ^ 和 _
+
+5. 每道题必须有实际应用背景，贴近生活，体现该知识点的实用价值。
+
+---
+【输出格式】
+请严格按照以下格式输出（用「层级名称」作为每个层级的标题标记）：
+
+【记忆】
+（第 1 题的完整内容，含 LaTeX 公式）
+
+【理解】
+（第 2 题的完整内容，含 LaTeX 公式）
+
+...（以此类推，直到最后一个层级）
+
+【{levels[-1]['name']}】
+（第{n_levels}题的完整内容，含 LaTeX 公式）
+---"""
 
 
 def _build_cognitive_support_prompt(
@@ -304,32 +340,8 @@ def get_zpd_level_instruction(
 
 
 def _zpd_instruction_potential(level_id: str, kp: str, li: dict) -> str:
-    if level_id == "distal":
-        return f"""
-【当前任务：为「远端发展区」学生生成作业】
-学生情况：{li['description']} — 该学生对「{kp}」尚未建立基本理解。
-输出要求：
-1. 先提供一个简短的「{kp}」知识讲解（约150-200字），帮助学生建立基本概念
-2. 然后出 1 道最基础的题目，确保学生能够独立完成
-3. 题目难度应为基础入门级别，建立学生信心"""
-    elif level_id == "proximal":
-        return f"""
-【当前任务：为「最近发展区」学生生成作业】
-学生情况：{li['description']} — 该学生对「{kp}」有一定理解但需支持。
-输出要求：
-1. 出 3 道认知复杂度递进的题目（由易到难排列）
-2. 题目的认知层级应有清晰递进，从记忆/理解到应用/分析
-3. 每道题标注其对应的认知层级
-4. 题目之间应有内容上的衔接关系"""
-    elif level_id == "existing":
-        return f"""
-【当前任务：为「现有发展区」学生生成作业】
-学生情况：{li['description']} — 该学生对「{kp}」已掌握。
-输出要求：
-1. 出 3 道后继知识/拓展类的题目
-2. 题目应具有挑战性，推动学生向更高层次发展
-3. 可涉及「{kp}」与其他知识点的综合应用
-4. 题目难度应有区分度"""
+    """潜能适配型：单一理论层级驱动，不再按 ZPD 三区分开调用"""
+    return ""  # 此类型使用单次全层级生成，不需要分 ZPD 层级的独立指令
 
 
 def _zpd_instruction_cognitive(level_id: str, kp: str, li: dict) -> str:

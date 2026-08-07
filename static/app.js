@@ -530,13 +530,22 @@ document.addEventListener("change", (e) => {
 // Step 5: 三层次作业
 // ============================================================
 function renderStep5() {
+    const isTheoryLevels = state.homeworkResults && state.homeworkResults.type === "theory_levels";
+
     if (state.homeworkResults) {
         document.getElementById("generateActions").style.display = "none";
-        document.getElementById("zpdTabs").style.display = "block";
-        renderTabs();
+        document.getElementById("zpdTabs").style.display = isTheoryLevels ? "none" : "block";
+        if (isTheoryLevels) {
+            renderTheoryLevels();
+        } else {
+            renderTabs();
+        }
     } else {
         document.getElementById("generateActions").style.display = "block";
         document.getElementById("zpdTabs").style.display = "none";
+        // 隐藏理论层级容器
+        const tlContainer = document.getElementById("theoryLevelsContainer");
+        if (tlContainer) tlContainer.style.display = "none";
         document.getElementById("btnGenerateHomework").style.display = "inline-block";
         document.getElementById("generatingText").style.display = "none";
         document.getElementById("generatingError").style.display = "none";
@@ -584,8 +593,14 @@ async function generateHomework() {
 
         state.homeworkResults = data.homework;
         state.editedContents = {};
-        renderStep5();
-        renderTabs();
+
+        // 理论层级类型不需要 ZPD tabs，在 renderStep5 中处理
+        if (data.homework && data.homework.type === "theory_levels") {
+            renderStep5();
+        } else {
+            renderStep5();
+            renderTabs();
+        }
 
     } catch (e) {
         errorText.textContent = "❌ 请求失败：" + e.message;
@@ -633,6 +648,178 @@ function renderTabs() {
     }).join("");
 
     document.getElementById("zpdTabs").style.display = "block";
+
+    // LaTeX 渲染
+    if (window.MathJax) {
+        MathJax.typesetPromise([document.getElementById("zpdTabs")]).catch(console.error);
+    }
+}
+
+function renderTheoryLevels() {
+    const hw = state.homeworkResults;
+    if (!hw || hw.type !== "theory_levels") return;
+
+    const levels = hw.levels || [];
+    if (levels.length === 0) {
+        document.getElementById("zpdTabs").style.display = "none";
+        return;
+    }
+
+    // 确保理论层级容器存在
+    let container = document.getElementById("theoryLevelsContainer");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "theoryLevelsContainer";
+        container.className = "theory-levels-container";
+        document.getElementById("step5").appendChild(container);
+    }
+    container.style.display = "block";
+
+    const theoryId = hw.theory_id || "";
+    const isBloom = theoryId === "bloom";
+
+    container.innerHTML = `
+        <div class="theory-header">
+            <h3>📊 基于<span class="theory-badge">${isBloom ? '布卢姆认知目标分类' : 'SOLO分类理论'}</span>的递进题目序列</h3>
+            <p class="theory-desc">
+                ${isBloom
+                    ? '共 6 个认知层级，从记忆到创造逐级递进，前一道题是后一道的认知支架'
+                    : '共 5 个结构层级，从单点信息到抽象扩展逐步深化，前一道题为后一道搭建思维阶梯'}
+            </p>
+        </div>
+        <div class="theory-levels-flow">
+            ${levels.map((lv, i) => `
+                <div class="level-card-wrapper">
+                    <div class="level-card" id="levelCard_${lv.id}">
+                        <div class="level-card-header">
+                            <span class="level-order">${lv.order}</span>
+                            <span class="level-name">${escapeHtml(lv.name)}</span>
+                            <span class="level-desc">${escapeHtml(lv.desc)}</span>
+                        </div>
+                        <div class="level-card-content" id="content_${lv.id}">
+                            ${escapeHtml(state.editedContents[lv.id] !== undefined ? state.editedContents[lv.id] : lv.content)}
+                        </div>
+                        <div class="level-card-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel('${lv.id}')">📝 编辑</button>
+                            <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel('${lv.id}')">🔄 重新生成</button>
+                        </div>
+                    </div>
+                    ${i < levels.length - 1 ? '<div class="level-connector"><span>⬇</span></div>' : ''}
+                </div>
+            `).join("")}
+        </div>
+    `;
+
+    // LaTeX 渲染
+    if (window.MathJax) {
+        MathJax.typesetPromise([container]).catch(console.error);
+    }
+}
+
+function editTheoryLevel(levelId) {
+    const contentDiv = document.getElementById("content_" + levelId);
+    if (!contentDiv) return;
+
+    if (contentDiv.classList.contains("editing")) {
+        const textarea = contentDiv.querySelector("textarea");
+        if (textarea) {
+            state.editedContents[levelId] = textarea.value;
+            contentDiv.innerHTML = escapeHtml(textarea.value);
+            contentDiv.classList.remove("editing");
+            // 重新渲染 LaTeX
+            if (window.MathJax) {
+                MathJax.typesetPromise([contentDiv]).catch(console.error);
+            }
+        }
+    } else {
+        const hwLevels = state.homeworkResults.levels || [];
+        const lv = hwLevels.find(l => l.id === levelId);
+        const currentContent = state.editedContents[levelId] !== undefined
+            ? state.editedContents[levelId]
+            : (lv ? lv.content : "");
+        contentDiv.classList.add("editing");
+        contentDiv.innerHTML = `<textarea>${escapeHtml(currentContent)}</textarea>`;
+    }
+}
+
+async function regenerateTheoryLevel(levelId) {
+    const hw = state.homeworkResults;
+    if (!hw || hw.type !== "theory_levels") return;
+
+    const lv = (hw.levels || []).find(l => l.id === levelId);
+    if (!lv) return;
+
+    // 移除旧 modal
+    document.querySelector(".modal-overlay")?.remove();
+
+    const modal = document.createElement("div");
+    modal.className = "modal-overlay";
+    modal.innerHTML = `
+        <div class="modal-box">
+            <h3>🔄 重新生成「${lv.name}」层级题目</h3>
+            <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:8px;">
+                请描述您希望如何调整该层级的题目（可选，留空则按原要求重新生成）：
+            </p>
+            <textarea id="regenerateAdjustment" placeholder="例如：题目难度再提高一些，增加一个生活化情境..."></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-secondary btn-sm" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary btn-sm" id="btnConfirmRegenerate">🔄 重新生成</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById("btnConfirmRegenerate").addEventListener("click", () => {
+        const adjustment = document.getElementById("regenerateAdjustment").value;
+        closeModal();
+        doRegenerateTheoryLevel(levelId, adjustment);
+    });
+
+    modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+    });
+}
+
+async function doRegenerateTheoryLevel(levelId, adjustment) {
+    if (!state.confirmedPrompt) return;
+
+    const contentDiv = document.getElementById("content_" + levelId);
+    if (contentDiv) {
+        contentDiv.innerHTML = "⏳ 正在重新生成中...";
+    }
+
+    try {
+        const res = await fetch("/api/regenerate-level", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                knowledge_point: state.selectedKp,
+                homework_type: state.selectedType,
+                theory: state.selectedTheory,
+                level: levelId,
+                adjustment: adjustment,
+                prompt: state.confirmedPrompt
+            })
+        });
+
+        const data = await res.json();
+        if (data.error) {
+            alert("重新生成失败：" + data.error);
+            return;
+        }
+
+        // 更新层级内容
+        const hwLevels = state.homeworkResults.levels || [];
+        const lv = hwLevels.find(l => l.id === levelId);
+        if (lv) {
+            lv.content = data.result.content || data.result;
+        }
+        delete state.editedContents[levelId];
+        renderTheoryLevels();
+
+    } catch (e) {
+        alert("请求失败：" + e.message);
+    }
 }
 
 function switchTab(levelId) {

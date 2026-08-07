@@ -17,22 +17,15 @@ def generate_all_levels(
     progress_callback=None
 ) -> dict:
     """
-    为三个 ZPD 层级并行生成作业
-
-    Args:
-        homework_type_id: 作业类型 ID
-        theory_id: 理论 ID
-        knowledge_point: 知识点
-        confirmed_prompt: Step 4 确认后的提示词
-        progress_callback: 可选，进度回调函数(level_id, status)
-
-    Returns:
-        {
-            "distal": {"label": "远端发展区", "content": "..."},
-            "proximal": {"label": "最近发展区", "content": "..."},
-            "existing": {"label": "现有发展区", "content": "..."}
-        }
+    为三个 ZPD 层级并行生成作业。
+    潜能适配型例外：使用理论层级驱动的单次生成。
     """
+    if homework_type_id == "potential_adaptive":
+        return generate_by_theory_levels(
+            homework_type_id, theory_id, knowledge_point,
+            confirmed_prompt, progress_callback
+        )
+
     system_prompt = build_system_prompt(homework_type_id, theory_id)
 
     levels = ["distal", "proximal", "existing"]
@@ -84,6 +77,107 @@ def generate_all_levels(
     return ordered_results
 
 
+def generate_by_theory_levels(
+    homework_type_id: str,
+    theory_id: str,
+    knowledge_point: str,
+    confirmed_prompt: str,
+    progress_callback=None
+) -> dict:
+    """
+    按理论层级生成作业（当前用于潜能适配型）。
+    单次 API 调用，返回按层级拆分的内容。
+    """
+    from config import get_theory_levels
+
+    system_prompt = build_system_prompt(homework_type_id, theory_id)
+
+    if progress_callback:
+        progress_callback("all", "generating")
+
+    try:
+        content = call_llm(system_prompt, confirmed_prompt)
+        parsed = _parse_theory_levels(content, theory_id)
+
+        if progress_callback:
+            progress_callback("all", "done")
+
+        return {
+            "type": "theory_levels",
+            "theory_id": theory_id,
+            "levels": parsed["levels"],
+            "full_content": content,
+        }
+    except Exception as e:
+        if progress_callback:
+            progress_callback("all", "error")
+        return {
+            "type": "theory_levels",
+            "theory_id": theory_id,
+            "levels": [],
+            "full_content": f"生成失败：{str(e)}",
+            "error": str(e),
+        }
+
+
+def _parse_theory_levels(content: str, theory_id: str) -> dict:
+    """
+    尝试按层级标记解析 AI 输出。
+    层级标记格式：【层级名称】
+    """
+    from config import get_theory_levels
+    import re
+
+    theory_levels = get_theory_levels(theory_id)
+    parsed_levels = []
+
+    # 按 【...】 标记拆分
+    pattern = r'【(.+?)】'
+    parts = re.split(pattern, content)
+
+    # parts[0] 是第一个标记之前的内容（前言），跳过
+    # 之后是 name1, content1, name2, content2, ...
+    for i in range(1, len(parts) - 1, 2):
+        name = parts[i].strip()
+        body = parts[i + 1].strip() if i + 1 < len(parts) else ""
+
+        # 匹配理论层级
+        matched = None
+        for lv in theory_levels:
+            if lv["name"] == name:
+                matched = lv
+                break
+
+        if matched:
+            parsed_levels.append({
+                "id": matched["id"],
+                "name": matched["name"],
+                "order": matched["order"],
+                "desc": matched["desc"],
+                "content": body,
+            })
+
+    # 若未能解析出任何层级，返回完整内容作为单一项
+    if not parsed_levels:
+        parsed_levels = [
+            {
+                "id": "full",
+                "name": "全部内容",
+                "order": 1,
+                "desc": "",
+                "content": content,
+            }
+        ]
+
+    # 按 order 排序
+    parsed_levels.sort(key=lambda x: x["order"])
+
+    return {
+        "levels": parsed_levels,
+        "raw": content,
+    }
+
+
 def _generate_single_level(
     homework_type_id: str,
     level_id: str,
@@ -125,19 +219,20 @@ def regenerate_single_level(
     adjustment: str = ""
 ) -> dict:
     """
-    重新生成单个 ZPD 层级的作业
-
-    Args:
-        homework_type_id: 作业类型 ID
-        theory_id: 理论 ID
-        knowledge_point: 知识点
-        level_id: 要重新生成的层级
-        confirmed_prompt: 原始确认提示词
-        adjustment: 教师的调整要求
-
-    Returns:
-        单层级结果 dict
+    重新生成单个层级的作业（ZPD 层级或理论层级）。
     """
+    # 理论层级重新生成（潜能适配型）
+    from config import get_theory_levels
+    theory_levels = get_theory_levels(theory_id)
+    matched_level = next((lv for lv in theory_levels if lv["id"] == level_id), None)
+
+    if matched_level:
+        return _regenerate_theory_level(
+            homework_type_id, theory_id, knowledge_point,
+            level_id, matched_level, confirmed_prompt, adjustment
+        )
+
+    # ZPD 层级重新生成（其他类型）
     system_prompt = build_system_prompt(homework_type_id, theory_id)
     level_instruction = get_zpd_level_instruction(
         homework_type_id, level_id, knowledge_point
@@ -172,5 +267,49 @@ def regenerate_single_level(
         "label": zpd_label,
         "description": zpd_info.get("description", ""),
         "icon": zpd_info.get("icon", ""),
+        "content": content
+    }
+
+
+def _regenerate_theory_level(
+    homework_type_id: str,
+    theory_id: str,
+    knowledge_point: str,
+    level_id: str,
+    level_info: dict,
+    confirmed_prompt: str,
+    adjustment: str = ""
+) -> dict:
+    """单独重新生成一个理论层级的题目"""
+    system_prompt = build_system_prompt(homework_type_id, theory_id)
+
+    adjustment_text = ""
+    if adjustment:
+        adjustment_text = f"""
+
+【教师调整要求】
+{adjustment}"""
+
+    full_user_prompt = f"""{confirmed_prompt}
+
+---
+
+【特别注意】
+你只需要重新生成「{level_info['name']}」这一个层级的题目。
+请以【{level_info['name']}】作为标题输出。
+
+该层级说明：{level_info['desc']}
+{adjustment_text}
+
+---
+
+重要提示：只输出「{level_info['name']}」层级的题目内容，不要输出其他层级。数学公式使用 LaTeX 格式。"""
+
+    content = call_llm(system_prompt, full_user_prompt)
+
+    return {
+        "label": level_info["name"],
+        "description": level_info["desc"],
+        "icon": "",
         "content": content
     }
