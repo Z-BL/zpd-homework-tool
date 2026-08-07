@@ -211,7 +211,10 @@ def api_check():
 # ============================================================
 if __name__ == "__main__":
     import sys
+    import os
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
+    port = int(os.environ.get("PORT", 5001))
 
     print("=" * 60)
     print("  [ZPD] 面向最近发展区的精准作业设计工具")
@@ -221,6 +224,6 @@ if __name__ == "__main__":
         print(f"  [OK] {api_status['message']}")
     else:
         print(f"  [WARN] {api_status['message']}")
-    print(f"  URL: http://localhost:5000")
+    print(f"  URL: http://localhost:{port}")
     print("=" * 60)
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True, host="0.0.0.0", port=port)

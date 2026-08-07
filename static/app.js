@@ -95,6 +95,7 @@ function goToStep(step) {
     state.currentStep = step;
     if (step === 2) renderStep2();
     if (step === 3) renderStep3();
+    if (step === 4) renderStep4();
     if (step === 5) renderStep5();
 
     // 更新 UI
@@ -162,8 +163,13 @@ function validateCurrentStep() {
                 alert("请先生成提示词");
                 return false;
             }
-            // 同步 textarea 中的编辑
-            state.confirmedPrompt = document.getElementById("userPromptText").value;
+            // 检测提示词是否被修改，若修改则清空作业
+            const newPrompt = document.getElementById("userPromptText").value;
+            if (newPrompt !== state.confirmedPrompt) {
+                state.homeworkResults = null;
+                state.editedContents = {};
+            }
+            state.confirmedPrompt = newPrompt;
             return true;
         case 5:
             return true;
@@ -196,6 +202,54 @@ function updateButtons() {
     } else {
         btnNext.textContent = "下一步 →";
         btnNext.style.display = "inline-block";
+    }
+}
+
+// ============================================================
+// 下游数据清除
+// ============================================================
+function clearDownstream(step) {
+    // step: 当前被修改的步骤号，清除该步骤及之后的所有数据
+    if (step <= 1) {
+        state.selectedKp = null;
+        state.selectedType = null;
+        state.selectedTheory = null;
+        state.confirmedPrompt = null;
+        state.systemPrompt = null;
+        state.homeworkResults = null;
+        state.editedContents = {};
+        state.supplement = {};
+        disableGeneratePromptBtn();
+    } else if (step <= 2) {
+        state.selectedType = null;
+        state.selectedTheory = null;
+        state.confirmedPrompt = null;
+        state.systemPrompt = null;
+        state.homeworkResults = null;
+        state.editedContents = {};
+        state.supplement = {};
+        disableGeneratePromptBtn();
+    } else if (step <= 3) {
+        state.selectedTheory = null;
+        state.confirmedPrompt = null;
+        state.systemPrompt = null;
+        state.homeworkResults = null;
+        state.editedContents = {};
+        state.supplement = {};
+        disableGeneratePromptBtn();
+    } else if (step <= 4) {
+        state.confirmedPrompt = null;
+        state.systemPrompt = null;
+        state.homeworkResults = null;
+        state.editedContents = {};
+    }
+}
+
+function disableGeneratePromptBtn() {
+    const btn = document.getElementById("btnGeneratePrompt");
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "✨ 生成提示词";
     }
 }
 
@@ -262,11 +316,16 @@ function renderKnowledgePointGrid() {
         </div>`;
     } else {
         grid.innerHTML = points.map(kp =>
-            `<div class="kp-card" data-kp="${escapeHtml(kp)}" onclick="selectKp(this, '${escapeJs(kp)}')">${escapeHtml(kp)}</div>`
+            `<div class="kp-card${kp === state.selectedKp ? ' selected' : ''}" data-kp="${escapeHtml(kp)}" onclick="selectKp(this, '${escapeJs(kp)}')">${escapeHtml(kp)}</div>`
         ).join("");
     }
 
-    document.getElementById("kpSelected").style.display = "none";
+    if (state.selectedKp) {
+        document.getElementById("kpSelectedName").textContent = state.selectedKp;
+        document.getElementById("kpSelected").style.display = "block";
+    } else {
+        document.getElementById("kpSelected").style.display = "none";
+    }
 }
 
 function filterKp() {
@@ -278,11 +337,15 @@ function filterKp() {
 }
 
 function selectKp(el, kp) {
+    const changed = state.selectedKp !== kp;
     document.querySelectorAll(".kp-card").forEach(c => c.classList.remove("selected"));
     el.classList.add("selected");
     state.selectedKp = kp;
     document.getElementById("kpSelectedName").textContent = kp;
     document.getElementById("kpSelected").style.display = "block";
+    if (changed) {
+        clearDownstream(2);
+    }
 }
 
 // ============================================================
@@ -307,10 +370,14 @@ function renderStep2() {
 }
 
 function selectType(typeId) {
+    const changed = state.selectedType !== typeId;
     document.querySelectorAll(".type-card").forEach(c => c.classList.remove("selected"));
     const card = document.querySelector(`[data-type="${typeId}"]`);
     if (card) card.classList.add("selected");
     state.selectedType = typeId;
+    if (changed) {
+        clearDownstream(3);
+    }
 }
 
 // ============================================================
@@ -338,7 +405,12 @@ function renderStep3() {
 }
 
 function onTheoryChange() {
-    state.selectedTheory = document.getElementById("theorySelect").value;
+    const newTheory = document.getElementById("theorySelect").value;
+    const changed = state.selectedTheory !== newTheory;
+    state.selectedTheory = newTheory;
+    if (changed && newTheory) {
+        clearDownstream(4);
+    }
     const ht = state.config.homework_types.find(t => t.id === state.selectedType);
     if (ht) {
         const theory = ht.theories.find(t => t.id === state.selectedTheory);
@@ -365,6 +437,30 @@ function renderSupplementFields(ht) {
 // ============================================================
 // Step 4: 提示词生成
 // ============================================================
+function renderStep4() {
+    const userPromptEl = document.getElementById("userPromptText");
+    const systemPromptEl = document.getElementById("systemPromptText");
+    const promptInfoEl = document.getElementById("promptInfo");
+    const promptMetaEl = document.getElementById("promptMeta");
+    const btn = document.getElementById("btnGeneratePrompt");
+
+    if (state.confirmedPrompt) {
+        // 已有提示词，回显内容
+        userPromptEl.value = state.confirmedPrompt;
+        systemPromptEl.value = state.systemPrompt || "";
+        btn.textContent = "✅ 提示词已生成（可在左侧编辑）";
+        btn.disabled = false;
+    } else {
+        // 无提示词，清空面板
+        userPromptEl.value = "";
+        systemPromptEl.value = "";
+        promptInfoEl.textContent = "";
+        promptMetaEl.textContent = "";
+        btn.textContent = "✨ 生成提示词";
+        btn.disabled = !state.selectedTheory;
+    }
+}
+
 async function generatePrompt() {
     if (!state.selectedKp || !state.selectedType || !state.selectedTheory) {
         alert("请先完成前三个步骤");
@@ -376,6 +472,10 @@ async function generatePrompt() {
     document.querySelectorAll("#supplementFields input, #supplementFields textarea").forEach(el => {
         supplement[el.name] = el.value;
     });
+
+    // 生成新提示词前清空旧作业（因为提示词变了，旧作业已过时）
+    state.homeworkResults = null;
+    state.editedContents = {};
 
     const btn = document.getElementById("btnGeneratePrompt");
     btn.disabled = true;
