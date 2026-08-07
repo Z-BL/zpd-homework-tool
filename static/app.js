@@ -680,7 +680,7 @@ function _buildLevelCardHTML(lv, zone) {
         '  <div class="level-card-actions">',
         '    <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>',
         '    <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>',
-        '    <span class="zone-badge ' + badgeClass + '">' + zoneIcon + ' ' + escapeHtml(zoneProfile) + '</span>',
+        '    <span class="btn btn-sm zone-badge ' + badgeClass + '">' + zoneIcon + ' ' + escapeHtml(zoneProfile) + '</span>',
         '  </div>',
         '</div>',
     ].join('\n');
@@ -697,6 +697,9 @@ function _buildZoneGroupHTML(zone) {
     const levelCards = [];
     for (let li = 0; li < levels.length; li++) {
         levelCards.push(_buildLevelCardHTML(levels[li], zone));
+        if (li < levels.length - 1) {
+            levelCards.push('<div class="level-connector"><span>⬇ 递进</span></div>');
+        }
     }
 
     return [
@@ -750,6 +753,9 @@ function renderTheoryLevels() {
         html += '<div class="zpd-zones-flow">';
         for (let zi = 0; zi < zones.length; zi++) {
             html += _buildZoneGroupHTML(zones[zi]);
+            if (zi < zones.length - 1) {
+                html += '<div class="zone-connector"><span>⬇</span></div>';
+            }
         }
         html += '</div>';
     } else {
