@@ -96,7 +96,6 @@ def _build_potential_adaptive_prompt(
         output_format_lines.append(f"## {zone_label}")
         for i, nm in enumerate(level_names):
             output_format_lines.append(f"【{nm}】")
-            output_format_lines.append(f"（面向 {zone.get('student_profile', '')} 学生，共 1 道题）")
         output_format_lines.append("")
     output_format_text = "\n".join(output_format_lines)
 
