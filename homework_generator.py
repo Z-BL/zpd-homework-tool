@@ -132,7 +132,7 @@ def _parse_theory_levels(content: str, theory_id: str) -> dict:
     zones = []
 
     # 按 ZPD 区分割：## 区名
-    zone_pattern = r'##\s*(.+?)\n'
+    zone_pattern = r'##\s*(.+?)(?:\n|$)'
     zone_parts = re.split(zone_pattern, content)
 
     if len(zone_parts) < 3:
