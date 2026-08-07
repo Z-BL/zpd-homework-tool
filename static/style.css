@@ -902,9 +902,9 @@ body {
     color: #fff;
     flex-wrap: wrap;
 }
-.zone-group:nth-child(1) .zone-header { background: linear-gradient(135deg, #e67e22, #f39c12); }
-.zone-group:nth-child(2) .zone-header { background: linear-gradient(135deg, #667eea, #764ba2); }
-.zone-group:nth-child(3) .zone-header { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+.zone-header.zone-badge-distal { background: #e5e7eb; color: #374151; }
+.zone-header.zone-badge-proximal { background: #fed7aa; color: #7c2d12; }
+.zone-header.zone-badge-existing { background: #bbf7d0; color: #14532d; }
 .zone-icon { font-size: 1.4rem; flex-shrink: 0; }
 .zone-info {
     display: flex;
@@ -969,16 +969,16 @@ body {
     flex-shrink: 0;
 }
 .zone-badge-distal {
-    background: #fef3c7;
-    color: #d97706;
+    background: #e5e7eb;
+    color: #374151;
 }
 .zone-badge-proximal {
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #fed7aa;
+    color: #7c2d12;
 }
 .zone-badge-existing {
-    background: #d1fae5;
-    color: #047857;
+    background: #bbf7d0;
+    color: #14532d;
 }
 .zone-level-card .level-card-content {
     background: #fff;

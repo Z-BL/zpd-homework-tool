@@ -96,7 +96,6 @@ def _build_potential_adaptive_prompt(
         output_format_lines.append(f"## {zone_label}")
         for i, nm in enumerate(level_names):
             output_format_lines.append(f"【{nm}】")
-        output_format_lines.append("")
     output_format_text = "\n".join(output_format_lines)
 
     # 构建可选用部分

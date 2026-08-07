@@ -655,6 +655,71 @@ function renderTabs() {
     }
 }
 
+function _zoneBadgeClass(zid) {
+    if (zid === 'distal') return 'zone-badge-distal';
+    if (zid === 'proximal') return 'zone-badge-proximal';
+    return 'zone-badge-existing';
+}
+
+function _buildLevelCardHTML(lv, zone) {
+    const zid = zone.zone_id || '';
+    const badgeClass = _zoneBadgeClass(zid);
+    const zoneIcon = zone.icon || '';
+    const zoneProfile = zone.student_profile || '';
+    const content = state.editedContents[lv.id] !== undefined
+        ? state.editedContents[lv.id]
+        : (lv.content || '');
+    return [
+        '<div class="zone-level-card" id="levelCard_' + lv.id + '">',
+        '  <div class="level-card-header">',
+        '    <span class="level-order">' + lv.order + '</span>',
+        '    <span class="level-name">' + escapeHtml(lv.name) + '</span>',
+        '    <span class="level-desc">' + escapeHtml(lv.desc) + '</span>',
+        '    <span class="zone-badge ' + badgeClass + '">' + zoneIcon + ' ' + escapeHtml(zoneProfile) + '</span>',
+        '  </div>',
+        '  <div class="level-card-content" id="content_' + lv.id + '">' + escapeHtml(content) + '</div>',
+        '  <div class="level-card-actions">',
+        '    <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>',
+        '    <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>',
+        '  </div>',
+        '</div>',
+    ].join('\n');
+}
+
+function _buildZoneGroupHTML(zone) {
+    const zid = zone.zone_id || '';
+    const badgeClass = _zoneBadgeClass(zid);
+    const icon = zone.icon || '';
+    const label = escapeHtml(zone.zone_label || zid);
+    const profile = escapeHtml(zone.student_profile || '');
+    const goal = escapeHtml(zone.goal || '');
+    const levels = zone.levels || [];
+
+    const levelCards = [];
+    for (let li = 0; li < levels.length; li++) {
+        levelCards.push(_buildLevelCardHTML(levels[li], zone));
+        if (li < levels.length - 1) {
+            levelCards.push('<div class="level-connector"><span>⬇ 递进支架</span></div>');
+        }
+    }
+
+    return [
+        '<div class="zone-group">',
+        '  <div class="zone-header ' + badgeClass + '">',
+        '    <span class="zone-icon">' + icon + '</span>',
+        '    <div class="zone-info">',
+        '      <span class="zone-label">' + label + '</span>',
+        '      <span class="zone-profile">👤 ' + profile + '</span>',
+        '    </div>',
+        '    <span class="zone-goal">' + goal + '</span>',
+        '  </div>',
+        '  <div class="zone-levels">',
+        levelCards.join('\n'),
+        '  </div>',
+        '</div>',
+    ].join('\n');
+}
+
 function renderTheoryLevels() {
     const hw = state.homeworkResults;
     if (!hw || hw.type !== "theory_levels") return;
@@ -667,7 +732,6 @@ function renderTheoryLevels() {
         return;
     }
 
-    // 确保容器存在
     let container = document.getElementById("theoryLevelsContainer");
     if (!container) {
         container = document.createElement("div");
@@ -680,86 +744,51 @@ function renderTheoryLevels() {
     const theoryId = hw.theory_id || "";
     const isBloom = theoryId === "bloom";
 
-    // 如果有 zones，按区渲染；否则回退到平铺
+    let html = '';
+    html += '<div class="theory-header">';
+    html += '<h3>📊 基于<span class="theory-badge">' + (isBloom ? '布卢姆认知目标分类' : 'SOLO分类理论') + '</span> × 最近发展区三层级作业</h3>';
+    html += '<p class="theory-desc">';
+    html += isBloom
+        ? '共 3 个 ZPD 区 × 6 个认知层级，各区面向不同水平学生，区内题目逐级递进'
+        : '共 3 个 ZPD 区 × 5 个结构层级，各区面向不同水平学生，区内题目逐级递进';
+    html += '</p></div>';
+
     if (zones.length > 0) {
-        container.innerHTML = `
-            <div class="theory-header">
-                <h3>📊 基于<span class="theory-badge">${isBloom ? '布卢姆认知目标分类' : 'SOLO分类理论'}</span>× 最近发展区三层级作业</h3>
-                <p class="theory-desc">
-                    ${isBloom
-                        ? '共 3 个 ZPD 区 × 6 个认知层级，各区面向不同水平学生，区内题目逐级递进'
-                        : '共 3 个 ZPD 区 × 5 个结构层级，各区面向不同水平学生，区内题目逐级递进'}
-                </p>
-            </div>
-            <div class="zpd-zones-flow">
-                ${zones.map((zone, zi) => `
-                    <div class="zone-group">
-                        <div class="zone-header">
-                            <span class="zone-icon">${zone.icon || ''}</span>
-                            <div class="zone-info">
-                                <span class="zone-label">${escapeHtml(zone.zone_label || zone.zone_id)}</span>
-                                <span class="zone-profile">👤 ${escapeHtml(zone.student_profile || '')}</span>
-                            </div>
-                            <span class="zone-goal">${escapeHtml(zone.goal || '')}</span>
-                        </div>
-                        <div class="zone-levels">
-                            ${(zone.levels || []).map((lv, li) => {
-                                const zoneIcon = zone.icon || '';
-                                const zoneProfile = escapeHtml(zone.student_profile || '');
-                                const zid = zone.zone_id || '';
-                                const badgeClass = zid === 'distal' ? 'zone-badge-distal' : zid === 'proximal' ? 'zone-badge-proximal' : 'zone-badge-existing';
-                                return `
-                                <div class="zone-level-card" id="levelCard_${lv.id}">
-                                    <div class="level-card-header">
-                                        <span class="level-order">${lv.order}</span>
-                                        <span class="level-name">${escapeHtml(lv.name)}</span>
-                                        <span class="level-desc">${escapeHtml(lv.desc)}</span>
-                                        <span class="zone-badge ${badgeClass}">${zoneIcon} ${zoneProfile}</span>
-                                    </div>
-                                    <div class="level-card-content" id="content_${lv.id}">
-                                        ${escapeHtml(state.editedContents[lv.id] !== undefined ? state.editedContents[lv.id] : lv.content)}
-                                    </div>
-                                    <div class="level-card-actions">
-                                        <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel('${lv.id}')">📝 编辑</button>
-                                        <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel('${lv.id}')">🔄 重新生成</button>
-                                    </div>
-                                </div>
-                                ${li < (zone.levels || []).length - 1 ? '<div class="level-connector"><span>⬇ 递进支架</span></div>' : ''}
-                            `; }).join("")}
-                        </div>
-                    </div>
-                    ${zi < zones.length - 1 ? '<div class="zone-connector"><span>⬇ 下一个发展区</span></div>' : ''}
-                `).join("")}
-            </div>
-        `;
+        html += '<div class="zpd-zones-flow">';
+        for (let zi = 0; zi < zones.length; zi++) {
+            html += _buildZoneGroupHTML(zones[zi]);
+            if (zi < zones.length - 1) {
+                html += '<div class="zone-connector"><span>⬇ 下一个发展区</span></div>';
+            }
+        }
+        html += '</div>';
     } else {
         // 回退：平铺层级卡片
-        container.innerHTML = `
-            <div class="theory-header">
-                <h3>📊 基于<span class="theory-badge">${isBloom ? '布卢姆认知目标分类' : 'SOLO分类理论'}</span>的递进题目序列</h3>
-                <p class="theory-desc">${isBloom ? '共 6 个认知层级' : '共 5 个结构层级'}，前一道题是后一道的认知支架</p>
-            </div>
-            <div class="zpd-zones-flow">
-                ${levels.map((lv, i) => `
-                    <div class="zone-level-card" id="levelCard_${lv.id}">
-                        <div class="level-card-header">
-                            <span class="level-order">${lv.order}</span>
-                            <span class="level-name">${escapeHtml(lv.name)}</span>
-                            <span class="level-desc">${escapeHtml(lv.desc)}</span>
-                        </div>
-                        <div class="level-card-content" id="content_${lv.id}">
-                            ${escapeHtml(state.editedContents[lv.id] !== undefined ? state.editedContents[lv.id] : lv.content)}
-                        </div>
-                        <div class="level-card-actions">
-                            <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel('${lv.id}')">📝 编辑</button>
-                            <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel('${lv.id}')">🔄 重新生成</button>
-                        </div>
-                    </div>
-                    ${i < levels.length - 1 ? '<div class="level-connector"><span>⬇ 递进支架</span></div>' : ''}
-                `).join("")}
-            </div>
-        `;
+        html += '<div class="zpd-zones-flow">';
+        for (let i = 0; i < levels.length; i++) {
+            const lv = levels[i];
+            const content = state.editedContents[lv.id] !== undefined
+                ? state.editedContents[lv.id]
+                : (lv.content || '');
+            html += '<div class="zone-level-card" id="levelCard_' + lv.id + '">';
+            html += '<div class="level-card-header">';
+            html += '<span class="level-order">' + lv.order + '</span>';
+            html += '<span class="level-name">' + escapeHtml(lv.name) + '</span>';
+            html += '<span class="level-desc">' + escapeHtml(lv.desc) + '</span>';
+            html += '</div>';
+            html += '<div class="level-card-content" id="content_' + lv.id + '">' + escapeHtml(content) + '</div>';
+            html += '<div class="level-card-actions">';
+            html += '<button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>';
+            html += '<button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>';
+            html += '</div></div>';
+            if (i < levels.length - 1) {
+                html += '<div class="level-connector"><span>⬇ 递进支架</span></div>';
+            }
+        }
+        html += '</div>';
     }
+
+    container.innerHTML = html;
 
     // LaTeX 渲染
     if (window.MathJax) {
