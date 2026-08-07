@@ -941,6 +941,18 @@ body {
     overflow: hidden;
     transition: box-shadow 0.2s;
 }
+.zone-card-distal {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+.zone-card-proximal {
+    background: #fff7ed;
+    border-color: #fed7aa;
+}
+.zone-card-existing {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
 .zone-level-card:hover {
     box-shadow: 0 1px 8px rgba(0,0,0,0.06);
 }

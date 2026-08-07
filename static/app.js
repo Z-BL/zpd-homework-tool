@@ -661,6 +661,12 @@ function _zoneBadgeClass(zid) {
     return 'zone-badge-existing';
 }
 
+function _zoneShortName(zid) {
+    if (zid === 'distal') return '远端发展区';
+    if (zid === 'proximal') return '最近发展区';
+    return '现有发展区';
+}
+
 function _buildLevelCardHTML(lv, zone) {
     const zid = zone.zone_id || '';
     const badgeClass = _zoneBadgeClass(zid);
@@ -670,7 +676,7 @@ function _buildLevelCardHTML(lv, zone) {
         ? state.editedContents[lv.id]
         : (lv.content || '');
     return [
-        '<div class="zone-level-card" id="levelCard_' + lv.id + '">',
+        '<div class="zone-level-card zone-card-' + zid + '" id="levelCard_' + lv.id + '">',
         '  <div class="level-card-header">',
         '    <span class="level-order">' + lv.order + '</span>',
         '    <span class="level-name">' + escapeHtml(lv.name) + '</span>',
@@ -680,7 +686,7 @@ function _buildLevelCardHTML(lv, zone) {
         '  <div class="level-card-actions">',
         '    <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>',
         '    <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>',
-        '    <span class="btn btn-sm zone-badge ' + badgeClass + '">' + zoneIcon + ' ' + escapeHtml(zoneProfile) + '</span>',
+        '    <span class="btn btn-sm zone-badge ' + badgeClass + '">' + zoneIcon + ' ' + _zoneShortName(zid) + '</span>',
         '  </div>',
         '</div>',
     ].join('\n');
