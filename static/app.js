@@ -77,7 +77,9 @@ function bindEvents() {
 }
 
 function goToStep(step) {
-    if (step < 1 || step > 5) return;
+    // 对话类型最多 6 步，其他最多 5 步
+    const maxStep = (state.selectedType === "dynamic_interactive" || state.selectedType === "collaborative_inquiry") ? 6 : 5;
+    if (step < 1 || step > maxStep) return;
 
     // 进入 Step 3 前检查
     if (step >= 3 && !state.selectedKp) {
@@ -97,6 +99,7 @@ function goToStep(step) {
     if (step === 3) renderStep3();
     if (step === 4) renderStep4();
     if (step === 5) renderStep5();
+    if (step === 6) initChatPage();
 
     // 更新 UI
     document.querySelectorAll(".step-panel").forEach(p => p.classList.remove("active"));
@@ -107,7 +110,8 @@ function goToStep(step) {
 
 function goNext() {
     if (!validateCurrentStep()) return;
-    if (state.currentStep < 5) {
+    const maxStep = (state.selectedType === "dynamic_interactive" || state.selectedType === "collaborative_inquiry") ? 6 : 5;
+    if (state.currentStep < maxStep) {
         goToStep(state.currentStep + 1);
     }
 }
@@ -196,7 +200,14 @@ function updateButtons() {
 
     btnPrev.style.display = state.currentStep > 1 ? "inline-block" : "none";
 
-    if (state.currentStep === 5) {
+    const isDialogue = state.selectedType === "dynamic_interactive" || state.selectedType === "collaborative_inquiry";
+
+    if (state.currentStep === 6) {
+        btnNext.style.display = "none";
+    } else if (state.currentStep === 5 && isDialogue) {
+        btnNext.textContent = "💬 开始对话 →";
+        btnNext.style.display = "inline-block";
+    } else if (state.currentStep === 5) {
         btnNext.textContent = "✅ 完成";
         btnNext.style.display = "inline-block";
     } else {
@@ -242,6 +253,7 @@ function clearDownstream(step) {
         state.systemPrompt = null;
         state.homeworkResults = null;
         state.editedContents = {};
+        state.chatData = null;
     }
 }
 
@@ -531,16 +543,19 @@ document.addEventListener("change", (e) => {
 // ============================================================
 function renderStep5() {
     const hw = state.homeworkResults;
-    const isTheoryLevels = hw && hw.type === "theory_levels";
-    const isCognitive = hw && hw.type === "cognitive_stages";
+    const isStructured = hw && (hw.type === "theory_levels" || hw.type === "cognitive_stages" || hw.type === "dialogue_config" || hw.type === "inquiry_config");
 
     if (hw) {
         document.getElementById("generateActions").style.display = "none";
-        document.getElementById("zpdTabs").style.display = (isTheoryLevels || isCognitive) ? "none" : "block";
-        if (isTheoryLevels) {
+        document.getElementById("zpdTabs").style.display = isStructured ? "none" : "block";
+        if (hw.type === "theory_levels") {
             renderTheoryLevels();
-        } else if (isCognitive) {
+        } else if (hw.type === "cognitive_stages") {
             renderCognitiveStages();
+        } else if (hw.type === "dialogue_config") {
+            renderDialogueConfig();
+        } else if (hw.type === "inquiry_config") {
+            renderInquiryConfig();
         } else {
             renderTabs();
         }
@@ -598,8 +613,8 @@ async function generateHomework() {
         state.homeworkResults = data.homework;
         state.editedContents = {};
 
-        // 结构化类型在 renderStep5 中处理
-        if (data.homework && (data.homework.type === "theory_levels" || data.homework.type === "cognitive_stages")) {
+        // 结构化类型有 .type 字段，标准 ZPD 结果没有
+        if (data.homework && data.homework.type) {
             renderStep5();
         } else {
             renderStep5();
@@ -910,6 +925,135 @@ function renderCognitiveStages() {
     }
 }
 
+function renderDialogueConfig() {
+    const hw = state.homeworkResults;
+    if (!hw || hw.type !== "dialogue_config") return;
+
+    const zones = hw.zones || [];
+    const question = hw.question || "";
+    if (state._configZoneIndex === undefined) state._configZoneIndex = 1;
+    const zi = state._configZoneIndex;
+    const z = zones[zi] || {};
+    const zid = z.zone_id || '';
+
+    let container = document.getElementById("theoryLevelsContainer");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "theoryLevelsContainer";
+        container.className = "theory-levels-container";
+        document.getElementById("step5").appendChild(container);
+    }
+    container.style.display = "block";
+
+    let html = '<div class="theory-header"><h3>🤖 最近发展区作业导师 — 苏格拉底启发式对话配置</h3>';
+    html += '<p class="theory-desc">3 种 ZPD 对话风格 × 智能体配置</p>';
+    html += '<div class="config-zone-tabs">';
+    for (let ti = 0; ti < zones.length; ti++) {
+        const tz = zones[ti];
+        const tzid = tz.zone_id || '';
+        html += '<span class="chat-zone-tab zone-badge-' + tzid + (ti === zi ? ' active' : '') + '" onclick="state._configZoneIndex=' + ti + ';renderDialogueConfig()">' + (tz.icon||'') + ' ' + (tz.label||'') + ' · ' + (tz.style||'') + '</span>';
+    }
+    html += '</div></div>';
+
+    if (question) {
+        html += '<div class="stage-question-card"><div class="stage-question-header">📋 作业题目</div>';
+        html += '<div class="stage-question-content">' + escapeHtml(question) + '</div></div>';
+    }
+
+    const badgeClass = 'zone-badge-' + zid;
+    html += '<div class="stage-group">';
+    html += '<div class="stage-header ' + badgeClass + '">';
+    html += '<span>' + (z.icon || '') + ' ' + escapeHtml(z.label || '') + ' · ' + escapeHtml(z.style || '') + '</span>';
+    html += '<span style="font-size:0.8rem;opacity:0.8;margin-left:auto">' + escapeHtml(z.description || '') + '</span>';
+    html += '</div>';
+
+    const sections = [
+        {key: 'opening', title: '🎤 开场引导语', content: z.opening},
+        {key: 'rules', title: '📋 对话规则与追问策略', content: z.rules},
+        {key: 'scaffold_path', title: '🪜 支架升级路径', content: z.scaffold_path},
+        {key: 'evaluation', title: '📊 形成性评价模板', content: z.evaluation},
+    ];
+    for (let si = 0; si < sections.length; si++) {
+        const sec = sections[si];
+        html += '<div class="dialogue-section">';
+        html += '<div class="dialogue-section-title">' + sec.title + '</div>';
+        html += '<div class="dialogue-section-content">' + escapeHtml(sec.content || '') + '</div>';
+        html += '</div>';
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+    if (window.MathJax) { MathJax.typesetPromise([container]).catch(function() {}); }
+}
+
+function renderInquiryConfig() {
+    const hw = state.homeworkResults;
+    if (!hw || hw.type !== "inquiry_config") return;
+
+    const zones = hw.zones || [];
+    const theme = hw.theme || "";
+    if (state._configZoneIndex === undefined) state._configZoneIndex = 1;
+    const zi = state._configZoneIndex;
+    const z = zones[zi] || {};
+    const zid = z.zone_id || '';
+
+    let container = document.getElementById("theoryLevelsContainer");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "theoryLevelsContainer";
+        container.className = "theory-levels-container";
+        document.getElementById("step5").appendChild(container);
+    }
+    container.style.display = "block";
+
+    let html = '<div class="theory-header"><h3>🔬 协作探究作业编排系统 — 探究式学习</h3>';
+    html += '<p class="theory-desc">3 种 ZPD 探究方案 × 多智能体角色配置</p>';
+    html += '<div class="config-zone-tabs">';
+    for (let ti = 0; ti < zones.length; ti++) {
+        const tz = zones[ti];
+        const tzid = tz.zone_id || '';
+        html += '<span class="chat-zone-tab zone-badge-' + tzid + (ti === zi ? ' active' : '') + '" onclick="state._configZoneIndex=' + ti + ';renderInquiryConfig()">' + (tz.icon||'') + ' ' + (tz.label||'') + ' · ' + (tz.style||'') + '</span>';
+    }
+    html += '</div></div>';
+
+    if (theme) {
+        html += '<div class="stage-question-card"><div class="stage-question-header">🔍 探究主题</div>';
+        html += '<div class="stage-question-content">' + escapeHtml(theme) + '</div></div>';
+    }
+
+    const badgeClass = 'zone-badge-' + zid;
+    html += '<div class="stage-group">';
+    html += '<div class="stage-header ' + badgeClass + '">';
+    html += '<span>' + (z.icon || '') + ' ' + escapeHtml(z.label || '') + ' · ' + escapeHtml(z.style || '') + '</span>';
+    html += '<span style="font-size:0.8rem;opacity:0.8;margin-left:auto">' + escapeHtml(z.description || '') + '</span>';
+    html += '</div>';
+
+    // 角色
+    html += '<div class="dialogue-section"><div class="dialogue-section-title">👥 角色配置（' + ((z.roles || []).length) + ' 个角色）</div>';
+    for (let ri = 0; ri < (z.roles || []).length; ri++) {
+        const r = z.roles[ri];
+        html += '<div class="dialogue-section-content" style="margin-bottom:8px"><strong>' + escapeHtml(r.name) + '</strong>：' + escapeHtml(r.desc || '') + '<br>' + escapeHtml(r.content || '') + '</div>';
+    }
+    html += '</div>';
+
+    // 阶段
+    html += '<div class="dialogue-section"><div class="dialogue-section-title">📐 探究阶段（' + ((z.stages || []).length) + ' 个阶段）</div>';
+    for (let si = 0; si < (z.stages || []).length; si++) {
+        const s = z.stages[si];
+        html += '<div class="dialogue-section-content" style="margin-bottom:8px"><strong>阶段 ' + (si+1) + '：' + escapeHtml(s.name) + '</strong> — ' + escapeHtml(s.desc || '') + '<br>' + escapeHtml(s.content || '') + '</div>';
+    }
+    html += '</div>';
+
+    // 行为规则
+    html += '<div class="dialogue-section"><div class="dialogue-section-title">⚠️ 行为边界与升级规则</div>';
+    html += '<div class="dialogue-section-content">' + escapeHtml(z.rules || '') + '</div></div>';
+
+    html += '</div>';
+
+    container.innerHTML = html;
+    if (window.MathJax) { MathJax.typesetPromise([container]).catch(function() {}); }
+}
+
 function editTheoryLevel(levelId) {
     const contentDiv = document.getElementById("content_" + levelId);
     if (!contentDiv) return;
@@ -1145,6 +1289,309 @@ async function doRegenerate(levelId, adjustment) {
     } catch (e) {
         alert("请求失败：" + e.message);
     }
+}
+
+// ============================================================
+// Step 6: 对话交互
+// ============================================================
+const ZONE_ORDER = ["distal", "proximal", "existing"];
+
+// ---- 通用 ----
+function _initChatData(hw, buildFn) {
+    if (!state.chatData) {
+        state.chatData = {};
+        for (let zi = 0; zi < ZONE_ORDER.length; zi++) {
+            const zid = ZONE_ORDER[zi];
+            state.chatData[zid] = { history: [], systemPrompt: buildFn(hw, zi) };
+        }
+        state._activeChatZone = "proximal";
+    }
+}
+
+function _currentChat() {
+    return (state.chatData || {})[state._activeChatZone || "proximal"] || { history: [], systemPrompt: "" };
+}
+
+function _renderZoneTabs(hw) {
+    var subtitle = document.getElementById("chatSubtitle");
+    subtitle.innerHTML = ZONE_ORDER.map(function(zid, zi) {
+        var z = (hw.zones || [])[zi] || {};
+        var active = zid === state._activeChatZone;
+        var count = (state.chatData[zid] || {}).history ? state.chatData[zid].history.length : 0;
+        var badgeClass = "zone-badge-" + zid;
+        return '<span class="chat-zone-tab ' + badgeClass + (active ? ' active' : '') + '" onclick="switchChatZone(\'' + zid + '\')">' + (z.icon || '') + ' ' + (z.label || zid) + ' · ' + (z.style || '') + (count > 0 ? ' (' + count + '条)' : '') + '</span>';
+    }).join("");
+}
+
+function switchChatZone(zid) {
+    state._activeChatZone = zid;
+    document.getElementById("chatInput").value = "";
+    document.getElementById("btnSend").style.display = "inline-block";
+    document.getElementById("chatInput").style.display = "";
+    document.getElementById("btnEndChat").style.display = "inline-block";
+    var hw = state.homeworkResults;
+    if (hw && hw.type === "dialogue_config") { _loadDialogueMessages(); initDialogueChat(); }
+    else if (hw && hw.type === "inquiry_config") { _loadInquiryMessages(); initInquiryChat(); }
+}
+
+function appendChatBubble(role, text) {
+    var msgs = document.getElementById("chatMessages");
+    var div = document.createElement("div");
+    div.className = "chat-bubble chat-" + role;
+    div.innerHTML = '<div class="chat-bubble-content">' + escapeHtml(text) + '</div>';
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+    if (window.MathJax) { MathJax.typesetPromise([div]).catch(function() {}); }
+}
+
+function _showChatQuestion(text) {
+    var old = document.getElementById("chatQuestionCard");
+    if (old) old.remove();
+    if (!text) return;
+    var div = document.createElement("div");
+    div.id = "chatQuestionCard";
+    div.style.cssText = "margin:0 16px;padding:8px 12px;background:var(--gray-100);border-radius:8px;font-size:0.85rem;color:var(--gray-700);white-space:pre-wrap;line-height:1.5";
+    div.textContent = "📋 " + text;
+    var container = document.getElementById("chatContainer");
+    container.insertBefore(div, document.getElementById("chatMessages"));
+}
+
+function _resetChatUI() {
+    document.getElementById("chatInput").value = "";
+    document.getElementById("btnSend").style.display = "inline-block";
+    document.getElementById("chatInput").style.display = "";
+    document.getElementById("btnEndChat").style.display = "inline-block";
+    var old = document.getElementById("inquiryControls");
+    if (old) old.remove();
+}
+
+// ---- 第三种：动态交互型 ----
+function initChatPage() {
+    var hw = state.homeworkResults;
+    if (hw && hw.type === "inquiry_config") { initInquiryChat(); return; }
+    initDialogueChat();
+}
+
+function _buildDialoguePrompt(hw, zoneIndex) {
+    var z = (hw.zones || [])[zoneIndex] || {};
+    return [
+        "你是最近发展区作业导师。请严格按照以下配置进行一对一辅导对话。",
+        "当前模式：" + (z.label || "") + " · " + (z.style || ""),
+        "", "【开场引导语】", z.opening || "",
+        "", "【对话规则与追问策略】", z.rules || "",
+        "", "【支架升级路径】", z.scaffold_path || "",
+        "", "【形成性评价模板】", z.evaluation || "",
+        "", "重要：不直接给出完整答案，每次只问一个问题或给一个提示。数学公式使用 LaTeX 格式（$...$）。",
+    ].join("\n");
+}
+
+function _getDialogueOpening(hw, zi) {
+    return ((hw.zones || [])[zi] || {}).opening || "你好！让我们开始吧。";
+}
+
+function initDialogueChat() {
+    var hw = state.homeworkResults;
+    _initChatData(hw, _buildDialoguePrompt);
+    _resetChatUI();
+    _renderZoneTabs(hw);
+    _showChatQuestion(hw.question || "");
+    _loadDialogueMessages();
+    document.getElementById("btnSend").onclick = sendDialogueMessage;
+    document.getElementById("chatInput").onkeydown = function(e) {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendDialogueMessage(); }
+    };
+    document.getElementById("btnEndChat").onclick = endDialogueChat;
+}
+
+function _loadDialogueMessages() {
+    var chat = _currentChat();
+    var msgs = document.getElementById("chatMessages");
+    msgs.innerHTML = "";
+    if (chat.history.length === 0) {
+        var opening = _getDialogueOpening(state.homeworkResults, ZONE_ORDER.indexOf(state._activeChatZone));
+        chat.history.push({role: "assistant", content: opening});
+        appendChatBubble("assistant", opening);
+    } else {
+        for (var i = 0; i < chat.history.length; i++) {
+            appendChatBubble(chat.history[i].role, chat.history[i].content);
+        }
+    }
+}
+
+async function sendDialogueMessage() {
+    var input = document.getElementById("chatInput");
+    var msg = input.value.trim();
+    if (!msg) return;
+    var chat = _currentChat();
+    appendChatBubble("user", msg);
+    chat.history.push({role: "user", content: msg});
+    input.value = "";
+    var btn = document.getElementById("btnSend"); btn.disabled = true; btn.textContent = "\u23f3...";
+    try {
+        var res = await fetch("/api/chat", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ system_prompt: chat.systemPrompt, history: chat.history.slice(0,-1), message: msg }) });
+        var data = await res.json();
+        if (data.error) { appendChatBubble("assistant", "\u274c " + data.error); }
+        else { var reply = data.reply || ""; appendChatBubble("assistant", reply); chat.history.push({role:"assistant", content: reply}); }
+    } catch (e) { appendChatBubble("assistant", "\u274c \u8bf7\u6c42\u5931\u8d25\uff1a" + e.message); }
+    btn.disabled = false; btn.textContent = "\u53d1\u9001";
+}
+
+async function endDialogueChat() {
+    var chat = _currentChat();
+    appendChatBubble("assistant", "\u23f3 \u6b63\u5728\u751f\u6210\u5f62\u6210\u6027\u8bc4\u4ef7...");
+    var evalPrompt = chat.systemPrompt + "\n\n\u5bf9\u8bdd\u5df2\u7ed3\u675f\u3002\u8bf7\u6839\u636e\u3010\u5f62\u6210\u6027\u8bc4\u4ef7\u6a21\u677f\u3011\u751f\u6210\u4e00\u4efd\u5b8c\u6574\u7684\u5f62\u6210\u6027\u8bc4\u4ef7\u3002";
+    try {
+        var res = await fetch("/api/chat", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ system_prompt: evalPrompt, history: chat.history, message: "\u5bf9\u8bdd\u7ed3\u675f\uff0c\u8bf7\u751f\u6210\u5f62\u6210\u6027\u8bc4\u4ef7\u3002" }) });
+        var data = await res.json();
+        document.getElementById("chatMessages").lastChild.remove();
+        if (data.error) { appendChatBubble("assistant", "\u274c " + data.error); }
+        else { appendChatBubble("assistant", "\ud83d\udcca **\u5f62\u6210\u6027\u8bc4\u4ef7**\n\n" + (data.reply || "")); }
+    } catch (e) { appendChatBubble("assistant", "\u274c " + e.message); }
+    document.getElementById("btnEndChat").style.display = "none";
+    document.getElementById("btnSend").style.display = "none";
+    document.getElementById("chatInput").style.display = "none";
+}
+
+// ---- 第四种：协作探究型 ----
+function _buildInquiryPrompt(hw, zoneIndex) {
+    var z = (hw.zones || [])[zoneIndex] || {};
+    var parts = ["你是协作探究多角色系统。根据对话状态自动选择角色和推进阶段。", "", "当前模式：" + (z.label||"") + " · " + (z.style||""), "", "【角色配置】"];
+    for (var ri = 0; ri < (z.roles || []).length; ri++) {
+        parts.push((z.roles[ri].name || "") + "：" + (z.roles[ri].desc || "") + "\n" + (z.roles[ri].content || ""));
+    }
+    parts.push("", "【阶段流程】");
+    for (var si = 0; si < (z.stages || []).length; si++) {
+        parts.push("阶段" + (si+1) + "：" + (z.stages[si].name || "") + "\n" + (z.stages[si].content || ""));
+    }
+    parts.push("", "【自动编排规则】");
+    parts.push("1. 每次回复前自动选择最合适的角色身份，以【角色名】开头");
+    parts.push("2. 当学生理解达到当前阶段目标时，自动推进：输出【NEXT_STAGE】");
+    parts.push("3. 遇到困难可回退：输出【PREV_STAGE】");
+    parts.push("4. 根据对话状态灵活切换角色，不需要轮询");
+    parts.push("", "【行为规则】" + (z.rules || ""), "", "重要：标注【角色名】回复，不直接给结论。数学公式 LaTeX 格式。");
+    return parts.join("\n");
+}
+
+function _getInquiryOpening(hw, zi) {
+    var z = (hw.zones || [])[zi] || {};
+    var stages = z.stages || [];
+    var stageName = stages.length > 0 ? stages[0].name : "探究";
+    var roles = z.roles || [];
+    var firstName = roles.length > 0 ? roles[0].name : "智能体";
+    return "【" + firstName + "】欢迎来到协作探究！当前阶段：「" + stageName + "」。请先告诉我你对这个探究主题的理解。";
+}
+
+function initInquiryChat() {
+    var hw = state.homeworkResults;
+    _initChatData(hw, _buildInquiryPrompt);
+    _resetChatUI();
+    _renderZoneTabs(hw);
+    _renderInquiryHeader(hw);
+    _showChatQuestion(hw.theme || "");
+    _loadInquiryMessages();
+    document.getElementById("btnSend").onclick = sendInquiryMessage;
+    document.getElementById("chatInput").onkeydown = function(e) {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendInquiryMessage(); }
+    };
+    document.getElementById("btnEndChat").onclick = endInquiryChat;
+}
+
+function _renderInquiryHeader(hw) {
+    var old = document.getElementById("inquiryControls");
+    if (old) old.remove();
+    var z = (hw.zones || [])[ZONE_ORDER.indexOf(state._activeChatZone)] || {};
+    var stages = z.stages || [];
+    if (!state._inquiryStage) state._inquiryStage = 0;
+
+    var div = document.createElement("div");
+    div.id = "inquiryControls";
+    div.style.cssText = "display:flex;align-items:center;gap:16px;padding:6px 16px;border-top:1px solid var(--gray-200);background:var(--gray-25);flex-shrink:0;font-size:0.82rem";
+
+    var rolesSpan = document.createElement("span");
+    rolesSpan.textContent = "🤖 角色：" + ((z.roles || []).map(function(r){return r.name;}).join(" / "));
+    div.appendChild(rolesSpan);
+
+    var stageSpan = document.createElement("span");
+    stageSpan.textContent = "📐 阶段：" + (state._inquiryStage + 1) + "/" + stages.length + " " + (stages[state._inquiryStage] || {}).name;
+    stageSpan.id = "inquiryStageLabel";
+    div.appendChild(stageSpan);
+
+    var hintSpan = document.createElement("span");
+    hintSpan.style.cssText = "color:var(--gray-400);font-size:0.75rem;margin-left:auto";
+    hintSpan.textContent = "AI 自动切换角色与阶段";
+    div.appendChild(hintSpan);
+
+    var container = document.getElementById("chatContainer");
+    container.insertBefore(div, document.getElementById("chatMessages"));
+}
+
+function _checkStageTransition(reply) {
+    if (!reply) return;
+    var hw = state.homeworkResults;
+    var z = (hw.zones || [])[ZONE_ORDER.indexOf(state._activeChatZone)] || {};
+    var stages = z.stages || [];
+    if (reply.indexOf("【NEXT_STAGE】") !== -1) {
+        if (state._inquiryStage < stages.length - 1) state._inquiryStage++;
+    } else if (reply.indexOf("【PREV_STAGE】") !== -1) {
+        if (state._inquiryStage > 0) state._inquiryStage--;
+    }
+}
+
+function _loadInquiryMessages() {
+    var chat = _currentChat();
+    var msgs = document.getElementById("chatMessages");
+    msgs.innerHTML = "";
+    if (chat.history.length === 0) {
+        var opening = _getInquiryOpening(state.homeworkResults, ZONE_ORDER.indexOf(state._activeChatZone));
+        chat.history.push({role: "assistant", content: opening});
+        appendChatBubble("assistant", opening);
+    } else {
+        for (var i = 0; i < chat.history.length; i++) {
+            appendChatBubble(chat.history[i].role, chat.history[i].content);
+        }
+    }
+}
+
+async function sendInquiryMessage() {
+    var input = document.getElementById("chatInput");
+    var msg = input.value.trim();
+    if (!msg) return;
+    var chat = _currentChat();
+    appendChatBubble("user", msg);
+    chat.history.push({role: "user", content: msg});
+    input.value = "";
+    var btn = document.getElementById("btnSend"); btn.disabled = true; btn.textContent = "\u23f3...";
+    try {
+        var res = await fetch("/api/chat", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ system_prompt: chat.systemPrompt, history: chat.history.slice(0,-1), message: msg }) });
+        var data = await res.json();
+        if (data.error) { appendChatBubble("assistant", "\u274c " + data.error); }
+        else {
+            var reply = data.reply || "";
+            _checkStageTransition(reply);
+            reply = reply.replace(/\u3010NEXT_STAGE\u3011/g, "").replace(/\u3010PREV_STAGE\u3011/g, "").trim();
+            appendChatBubble("assistant", reply);
+            chat.history.push({role:"assistant", content: reply});
+            initInquiryChat();
+        }
+    } catch (e) { appendChatBubble("assistant", "\u274c \u8bf7\u6c42\u5931\u8d25\uff1a" + e.message); }
+    btn.disabled = false; btn.textContent = "\u53d1\u9001";
+}
+
+async function endInquiryChat() {
+    var chat = _currentChat();
+    appendChatBubble("assistant", "\u23f3 \u6b63\u5728\u751f\u6210\u5f62\u6210\u6027\u8bc4\u4ef7...");
+    try {
+        var res = await fetch("/api/chat", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ system_prompt: chat.systemPrompt, history: chat.history, message: "\u63a2\u7a76\u7ed3\u675f\uff0c\u8bf7\u751f\u6210\u4e00\u4efd\u7efc\u5408\u5f62\u6210\u6027\u8bc4\u4ef7\u3002" }) });
+        var data = await res.json();
+        document.getElementById("chatMessages").lastChild.remove();
+        if (data.error) { appendChatBubble("assistant", "\u274c " + data.error); }
+        else { appendChatBubble("assistant", "\ud83d\udcca **\u5f62\u6210\u6027\u8bc4\u4ef7**\n\n" + (data.reply || "")); }
+    } catch (e) { appendChatBubble("assistant", "\u274c " + e.message); }
+    document.getElementById("btnEndChat").style.display = "none";
+    document.getElementById("btnSend").style.display = "none";
+    document.getElementById("chatInput").style.display = "none";
+    var ctrl = document.getElementById("inquiryControls");
+    if (ctrl) ctrl.style.display = "none";
 }
 
 // ============================================================

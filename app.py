@@ -200,6 +200,41 @@ def api_regenerate_level():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    """Step 6 多轮对话接口"""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "请求体不能为空"}), 400
+
+    system_prompt = data.get("system_prompt", "")
+    history = data.get("history", [])
+    user_message = data.get("message", "")
+
+    if not user_message:
+        return jsonify({"error": "消息不能为空"}), 400
+
+    from llm_client import get_client, DEEPSEEK_MODEL
+    client = get_client()
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for h in history:
+        messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        response = client.chat.completions.create(
+            model=DEEPSEEK_MODEL,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=2048
+        )
+        reply = response.choices[0].message.content or ""
+        return jsonify({"reply": reply})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/check-api", methods=["GET"])
 def api_check():
     """检查 API Key 配置状态"""

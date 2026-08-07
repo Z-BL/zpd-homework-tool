@@ -1140,3 +1140,133 @@ body {
         border-bottom: 1px solid var(--gray-200);
     }
 }
+
+/* ============================================================
+   对话配置/探究配置 区块
+   ============================================================ */
+.dialogue-section {
+    border-bottom: 1px solid var(--gray-200);
+}
+.dialogue-section:last-child {
+    border-bottom: none;
+}
+.dialogue-section-title {
+    padding: 8px 16px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    background: var(--gray-100);
+}
+.dialogue-section-content {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+}
+.stage-header.zone-badge-distal { background: #e5e7eb; color: #374151; }
+.stage-header.zone-badge-proximal { background: #fed7aa; color: #7c2d12; }
+.stage-header.zone-badge-existing { background: #bbf7d0; color: #14532d; }
+
+/* ============================================================
+   聊天界面
+   ============================================================ */
+.chat-container {
+    max-width: 800px;
+    margin: 0 auto;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 520px;
+}
+.chat-header {
+    padding: 12px 16px;
+    background: var(--gray-700);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+#chatTitle { font-weight: 700; font-size: 1rem; }
+#chatSubtitle { font-size: 0.8rem; margin-left: auto; display: flex; gap: 6px; }
+.config-zone-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+.chat-zone-tab {
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+}
+.chat-zone-tab.active { opacity: 1; box-shadow: 0 0 0 2px rgba(255,255,255,0.5); }
+.chat-zone-tab.zone-badge-distal { background: #9ca3af; color: #fff; }
+.chat-zone-tab.zone-badge-proximal { background: #fb923c; color: #fff; }
+.chat-zone-tab.zone-badge-existing { background: #22c55e; color: #fff; }
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--gray-25);
+}
+.chat-bubble {
+    display: flex;
+    max-width: 85%;
+}
+.chat-user {
+    align-self: flex-end;
+}
+.chat-assistant {
+    align-self: flex-start;
+}
+.chat-bubble-content {
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+.chat-user .chat-bubble-content {
+    background: #667eea;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+}
+.chat-assistant .chat-bubble-content {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-bottom-left-radius: 4px;
+}
+.chat-input-area {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--gray-200);
+    background: #fff;
+    flex-shrink: 0;
+}
+.chat-input-area textarea {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    resize: none;
+    font-family: inherit;
+}
+.chat-footer {
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+    border-top: 1px solid var(--gray-100);
+    background: var(--gray-25);
+    flex-shrink: 0;
+}

@@ -4,7 +4,8 @@
 
 from config import (get_homework_type, get_theory, get_theory_levels,
                        get_zpd_theory_mapping, get_cognitive_stages,
-                       get_zpd_scaffold_types)
+                       get_zpd_scaffold_types, get_dialogue_styles,
+                       get_inquiry_roles)
 
 
 def build_system_prompt(homework_type_id: str, theory_id: str) -> str:
@@ -265,56 +266,59 @@ def _build_dynamic_interactive_prompt(
     teaching_goal = (s.get("teaching_goal") or "").strip()
 
     theory_name = theory['name']
+    styles = get_dialogue_styles()
+
+    style_lines = []
+    out_lines = ["【题干】"]
+    for zid in ["distal", "proximal", "existing"]:
+        ds = styles.get(zid, {})
+        style_lines.append(
+            "  {} {}·{}：{}\n     策略：{}".format(
+                ds.get('icon', ''), ds.get('label', ''),
+                ds.get('style', ''), ds.get('description', ''),
+                ds.get('strategy', ''))
+        )
+        out_lines.append("## {}·{}".format(ds.get('label', ''), ds.get('style', '')))
+        out_lines.append("【开场引导语】")
+        out_lines.append("【对话规则与追问策略】")
+        out_lines.append("【支架升级路径】")
+        out_lines.append("【形成性评价模板】")
+    style_text = "\n".join(style_lines)
+    output_format = "\n".join(out_lines)
 
     parts = ['你是一名"最近发展区作业导师"，面向中学生开展一对一作业辅导。']
 
     if original_question:
-        parts.append(f"【作业题目】\n{original_question}")
+        parts.append("【作业题目】\n" + original_question)
 
-    parts.append(f"【学科与年级】\n{grade}{subject}")
+    parts.append("【学科与年级】\n" + grade + subject)
 
     if teaching_goal:
-        parts.append(f"【本题的教学目标】\n{teaching_goal}")
+        parts.append("【本题的教学目标】\n" + teaching_goal)
 
-    parts.append(f"""---
-
-你的任务不是直接告诉学生答案，而是根据学生回答判断其理解状态，并依据「{theory_name}」进行引导。你需要结合追问、澄清、提示、示例和反思，引导学生在最近发展区内完成作业。
+    parts.append("""请基于最近发展区理论和「""" + theory_name + """」为三类学生分别设计对话配置。
 
 ---
+【ZPD 三区对话风格】
 
-【对话规则】
-
-1. 先请学生说出自己对题目的理解或初步思路。
-2. 每次只提出一个问题或一个提示。
-3. 优先使用追问、澄清和方向性提示，而不是直接讲解。
-4. 当学生连续两次无法推进时，再给出该步骤支架的答案。
-5. 发现学生依赖AI索要答案时，提醒其先表达自己的想法。
-6. 不直接输出完整答案，不一次性给出所有支架，不替学生完成全部思考过程。
-7. 学生完成后，要求其用自己的话总结方法，并输出形成性评价。
+针对同一道题，不同学生需要不同的引导方式：
+""" + style_text + """
 
 ---
+【设计要求】
 
-【支架升级规则】
+1. 为三个 ZPD 区分别设计完整的智能体对话配置：开场引导语、对话规则与追问策略、支架升级路径、形成性评价模板。
 
-1. 如果学生能够表达基本思路，只使用追问和澄清。
-2. 如果学生理解题意但没有方法，进入"方向提示"级别。
-3. 如果学生有方法但执行受阻，进入"步骤提示"级别。
-4. 如果学生完成任务但不能解释理由，进入"反思引导"级别。
-5. 如果学生连续两次回答"不会""不知道"或明显偏离方向，可以升级一级支架。
-6. 每次只升级一级，不要一次性提供完整解法。
+2. 各区引导密度不同——远端多讲少问，最近追问为主，现有反问拓展。
+
+3. 所有数学公式使用 LaTeX 格式。
+
+4. 每个区的开场语必须先请学生说出对题目的理解。
 
 ---
+【输出格式（严格要求）】
 
-【形成性评价格式】
-
-对话结束后，请生成一份形成性评价，包括：
-1. 学生已经能够做到：
-2. 学生主要困难在于：
-3. 本次经历的引导阶段：
-4. 本次使用过的支架：
-5. 学生思路发生的变化：
-6. 下一步建议完成的作业或练习：
-7. 给学生的一句学习建议：""")
+""" + output_format)
 
     return "\n\n".join(parts)
 
@@ -328,58 +332,75 @@ def _build_collaborative_inquiry_prompt(
     expected_output = (s.get("expected_output") or "").strip()
     student_performance = (s.get("student_performance") or "").strip()
 
-    parts = ['你是一个"协作探究作业编排系统"，面向中学生开展多智能体协作的探究式作业辅导。\n本系统包含多个专业智能体角色，各司其职，协同工作，帮助学生在最近发展区内完成探究任务。']
+    theory_name = theory['name']
+    inquiry = get_inquiry_roles()
+
+    # 构建三区角色说明 + 输出格式
+    role_lines = []
+    out_lines = ["【探究主题】"]
+    for zid in ["distal", "proximal", "existing"]:
+        ir = inquiry.get(zid, {})
+        roles = ir.get("roles", [])
+        stages = ir.get("stages", [])
+        role_names = "、".join([r["name"] for r in roles])
+        stage_names = " → ".join([s["name"] for s in stages])
+
+        role_lines.append(
+            "  {} {}·{}（{}角色）：{}\n    角色：{}\n    阶段：{}".format(
+                ir.get('icon', ''), ir.get('label', ''),
+                ir.get('style', ''), str(len(roles)),
+                ir.get('description', ''),
+                role_names, stage_names)
+        )
+
+        out_lines.append("## {}·{}".format(ir.get('label', ''), ir.get('style', '')))
+        for r in roles:
+            out_lines.append("【角色：{}】".format(r["name"]))
+        for s in stages:
+            out_lines.append("【阶段：{}】".format(s["name"]))
+        out_lines.append("【行为规则】")
+        out_lines.append("")
+
+    role_text = "\n".join(role_lines)
+    output_format = "\n".join(out_lines)
+
+    parts = ['你是一个"协作探究作业编排系统"，面向中学生开展多智能体协作的探究式作业辅导。']
 
     inquiry_info = []
     if inquiry_theme:
-        inquiry_info.append(f"探究主题：{inquiry_theme}")
-    inquiry_info.append(f"学科与年级：{grade}{subject}")
-    inquiry_info.append(f"学习目标：围绕「{knowledge_point}」知识点，培养学生的探究能力和综合素养")
+        inquiry_info.append("探究主题：" + inquiry_theme)
+    inquiry_info.append("学科与年级：" + grade + subject)
+    inquiry_info.append("学习目标：围绕「" + knowledge_point + "」知识点，培养学生的探究能力和综合素养")
     if task_context:
-        inquiry_info.append(f"任务情境：{task_context}")
+        inquiry_info.append("任务情境：" + task_context)
     if expected_output:
-        inquiry_info.append(f"预期成果形式：{expected_output}")
+        inquiry_info.append("预期成果形式：" + expected_output)
     if student_performance:
-        inquiry_info.append(f"学生已有表现/学情：{student_performance}")
+        inquiry_info.append("学生已有表现/学情：" + student_performance)
 
     parts.append("【探究任务信息】\n\n" + "\n\n".join(inquiry_info))
 
-    parts.append("""---
-
-你的任务不是直接给出探究结论，而是通过编排多个专业智能体角色，在探究式学习理论、科学论证理论和协作学习理论的指导下，为学生提供多维度的"他者"支持，帮助学生在最近发展区内完成探究任务。
+    parts.append("""请基于最近发展区理论和「""" + theory_name + """」为三类学生分别设计多智能体协作探究配置。
 
 ---
+【ZPD 三区协作探究方案】
 
-【五个智能体角色】
-
-角色一：问题澄清智能体 — 帮助学生明确探究问题，拆解复杂问题为可操作的子问题
-角色二：证据收集与质疑智能体 — 引导学生寻找证据支持主张，对薄弱环节提出质疑
-角色三：方法指导智能体 — 提供探究方法和思维工具的指导
-角色四：反思反馈智能体 — 汇总过程数据，生成综合评价报告
-角色五（协调者）：工作流编排智能体 — 根据学生所处阶段调度对应角色
+不同水平的学生需要不同规模的角色配置和不同深度的探究流程：
+""" + role_text + """
 
 ---
+【设计要求】
 
-【协作工作流】
+1. 为三个 ZPD 区分别设计多智能体角色配置和探究工作流。各区角色数量和阶段深度不同——远端少角色多讲解，最近适中角色适度支架，现有全角色自主探究。
 
-第一阶段：问题澄清（由问题澄清智能体主导）
-- 呈现探究任务情境 → 引导重述问题 → 识别已知/未知 → 拆解子问题
+2. 所有角色均不直接给出探究结论或完整答案。
 
-第二阶段：探究与论证（证据质疑 + 方法指导协同）
-- 形成初步观点 → 证据检验 → 方法支持 → 收集完善 → 再次检验（循环迭代）
-
-第三阶段：总结与反思（由反思反馈智能体主导）
-- 汇总交互数据 → 生成综合评价报告 → 反思对话
+3. 所有数学公式使用 LaTeX 格式。
 
 ---
+【输出格式（严格要求）】
 
-【行为边界与升级规则】
-
-1. 所有智能体均不直接给出探究结论或完整答案
-2. 支持强度由弱到强：先启发 → 再提示 → 再示例 → 最后讲解
-3. 每次交互聚焦一个关键问题
-4. 学生在某阶段自主推进顺利时，减少干预
-5. 学生连续两次在同一问题上受阻时，升级支持强度""")
+""" + output_format)
 
     return "\n\n".join(parts)
 

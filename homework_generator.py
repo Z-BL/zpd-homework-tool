@@ -30,6 +30,16 @@ def generate_all_levels(
             homework_type_id, theory_id, knowledge_point,
             confirmed_prompt, progress_callback
         )
+    if homework_type_id == "dynamic_interactive":
+        return generate_dialogue_config(
+            homework_type_id, theory_id, knowledge_point,
+            confirmed_prompt, progress_callback
+        )
+    if homework_type_id == "collaborative_inquiry":
+        return generate_inquiry_config(
+            homework_type_id, theory_id, knowledge_point,
+            confirmed_prompt, progress_callback
+        )
 
     system_prompt = build_system_prompt(homework_type_id, theory_id)
 
@@ -376,6 +386,125 @@ def _parse_cognitive_stages(content: str, theory_id: str) -> dict:
         "stages": parsed_stages,
         "question": question,
     }
+
+
+def generate_dialogue_config(
+    homework_type_id, theory_id, knowledge_point, confirmed_prompt, progress_callback=None
+) -> dict:
+    """动态交互型：按 ZPD 三区生成对话配置"""
+    system_prompt = build_system_prompt(homework_type_id, theory_id)
+    if progress_callback:
+        progress_callback("all", "generating")
+    try:
+        content = call_llm(system_prompt, confirmed_prompt)
+        parsed = _parse_dialogue_zones(content)
+        if progress_callback:
+            progress_callback("all", "done")
+        return {"type": "dialogue_config", "theory_id": theory_id, "zones": parsed["zones"], "question": parsed.get("question", ""), "full_content": content}
+    except Exception as e:
+        if progress_callback:
+            progress_callback("all", "error")
+        return {"type": "dialogue_config", "theory_id": theory_id, "zones": [], "question": "", "error": str(e)}
+
+
+def _parse_dialogue_zones(content: str) -> dict:
+    from config import get_dialogue_styles
+    import re
+    ds = get_dialogue_styles()
+    question = ""
+    qm = re.search(r'【题干】\s*\n?(.+?)(?=\n## |\Z)', content, re.DOTALL)
+    if qm:
+        question = qm.group(1).strip()
+    zones = []
+    zone_pattern = r'##\s*(.+?)(?:\n|$)'
+    zone_parts = re.split(zone_pattern, content)
+    for i in range(1, len(zone_parts) - 1, 2):
+        title = zone_parts[i].strip()
+        body = zone_parts[i + 1].strip() if i + 1 < len(zone_parts) else ""
+        matched_zid = None
+        for zid, info in ds.items():
+            if info["label"] in title:
+                matched_zid = zid
+                break
+        if not matched_zid:
+            continue
+        def _extract_section(label):
+            m = re.search(rf'【{re.escape(label)}】\s*\n?(.+?)(?=\n【|\Z)', body, re.DOTALL)
+            return m.group(1).strip() if m else ""
+        zones.append({
+            "zone_id": matched_zid,
+            "label": ds[matched_zid]["label"],
+            "icon": ds[matched_zid]["icon"],
+            "style": ds[matched_zid]["style"],
+            "description": ds[matched_zid]["description"],
+            "opening": _extract_section("开场引导语"),
+            "rules": _extract_section("对话规则与追问策略"),
+            "scaffold_path": _extract_section("支架升级路径"),
+            "evaluation": _extract_section("形成性评价模板"),
+        })
+    return {"zones": zones, "question": question}
+
+
+def generate_inquiry_config(
+    homework_type_id, theory_id, knowledge_point, confirmed_prompt, progress_callback=None
+) -> dict:
+    """协作探究型：按 ZPD 三区生成多角色配置"""
+    system_prompt = build_system_prompt(homework_type_id, theory_id)
+    if progress_callback:
+        progress_callback("all", "generating")
+    try:
+        content = call_llm(system_prompt, confirmed_prompt)
+        parsed = _parse_inquiry_zones(content)
+        if progress_callback:
+            progress_callback("all", "done")
+        return {"type": "inquiry_config", "theory_id": theory_id, "zones": parsed["zones"], "theme": parsed.get("theme", ""), "full_content": content}
+    except Exception as e:
+        if progress_callback:
+            progress_callback("all", "error")
+        return {"type": "inquiry_config", "theory_id": theory_id, "zones": [], "theme": "", "error": str(e)}
+
+
+def _parse_inquiry_zones(content: str) -> dict:
+    from config import get_inquiry_roles
+    import re
+    ir = get_inquiry_roles()
+    theme = ""
+    tm = re.search(r'【探究主题】\s*\n?(.+?)(?=\n## |\Z)', content, re.DOTALL)
+    if tm:
+        theme = tm.group(1).strip()
+    zones = []
+    zone_pattern = r'##\s*(.+?)(?:\n|$)'
+    zone_parts = re.split(zone_pattern, content)
+    for i in range(1, len(zone_parts) - 1, 2):
+        title = zone_parts[i].strip()
+        body = zone_parts[i + 1].strip() if i + 1 < len(zone_parts) else ""
+        matched_zid = None
+        for zid, info in ir.items():
+            if info["label"] in title:
+                matched_zid = zid
+                break
+        if not matched_zid:
+            continue
+        def _extract_sec(label):
+            m = re.search(rf'【{re.escape(label)}】\s*\n?(.+?)(?=\n【|\Z)', body, re.DOTALL)
+            return m.group(1).strip() if m else ""
+        roles_data = []
+        for r in ir[matched_zid]["roles"]:
+            roles_data.append({"name": r["name"], "desc": r["desc"], "content": _extract_sec("角色：" + r["name"])})
+        stages_data = []
+        for s in ir[matched_zid]["stages"]:
+            stages_data.append({"name": s["name"], "desc": s["desc"], "content": _extract_sec("阶段：" + s["name"])})
+        zones.append({
+            "zone_id": matched_zid,
+            "label": ir[matched_zid]["label"],
+            "icon": ir[matched_zid]["icon"],
+            "style": ir[matched_zid]["style"],
+            "description": ir[matched_zid]["description"],
+            "stages": stages_data,
+            "roles": roles_data,
+            "rules": _extract_sec("行为规则"),
+        })
+    return {"zones": zones, "theme": theme}
 
 
 def _generate_single_level(

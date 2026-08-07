@@ -49,6 +49,11 @@
                 <div class="step-number">5</div>
                 <div class="step-label">查看与调整作业</div>
             </div>
+            <div class="step-connector"></div>
+            <div class="step" data-step="6">
+                <div class="step-number">6</div>
+                <div class="step-label">对话交互</div>
+            </div>
         </nav>
 
         <!-- 内容区域 -->
@@ -140,6 +145,28 @@
                     </div>
                     <div class="tab-panels" id="tabPanels">
                         <!-- 动态填充 -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 6: 对话交互 -->
+            <section class="step-panel" id="step6">
+                <h2>💬 对话交互</h2>
+                <p class="step-desc" id="step6Desc">与智能体进行一对一对话辅导</p>
+                <div class="chat-container" id="chatContainer">
+                    <div class="chat-header" id="chatHeader">
+                        <span id="chatTitle">🤖 智能体对话</span>
+                        <span id="chatSubtitle"></span>
+                    </div>
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- 动态填充 -->
+                    </div>
+                    <div class="chat-input-area">
+                        <textarea id="chatInput" rows="2" placeholder="请输入你的消息..."></textarea>
+                        <button class="btn btn-primary" id="btnSend">发送</button>
+                    </div>
+                    <div class="chat-footer">
+                        <button class="btn btn-sm btn-secondary" id="btnEndChat">结束对话 · 生成评价</button>
                     </div>
                 </div>
             </section>
