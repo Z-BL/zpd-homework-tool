@@ -25,6 +25,11 @@ def generate_all_levels(
             homework_type_id, theory_id, knowledge_point,
             confirmed_prompt, progress_callback
         )
+    if homework_type_id == "cognitive_support":
+        return generate_cognitive_stages(
+            homework_type_id, theory_id, knowledge_point,
+            confirmed_prompt, progress_callback
+        )
 
     system_prompt = build_system_prompt(homework_type_id, theory_id)
 
@@ -253,6 +258,124 @@ def _parse_flat_levels(content: str, theory_id: str) -> dict:
 def _zpd_zone_icon(zid: str) -> str:
     icons = {"distal": "🚀", "proximal": "🎯", "existing": "✅"}
     return icons.get(zid, "")
+
+
+def generate_cognitive_stages(
+    homework_type_id: str,
+    theory_id: str,
+    knowledge_point: str,
+    confirmed_prompt: str,
+    progress_callback=None
+) -> dict:
+    """认知支持型：按理论阶段 × ZPD 区生成支架"""
+    system_prompt = build_system_prompt(homework_type_id, theory_id)
+
+    if progress_callback:
+        progress_callback("all", "generating")
+
+    try:
+        content = call_llm(system_prompt, confirmed_prompt)
+        parsed = _parse_cognitive_stages(content, theory_id)
+
+        if progress_callback:
+            progress_callback("all", "done")
+
+        return {
+            "type": "cognitive_stages",
+            "theory_id": theory_id,
+            "stages": parsed["stages"],
+            "question": parsed.get("question", ""),
+            "full_content": content,
+        }
+    except Exception as e:
+        if progress_callback:
+            progress_callback("all", "error")
+        return {
+            "type": "cognitive_stages",
+            "theory_id": theory_id,
+            "stages": [],
+            "question": "",
+            "error": str(e),
+        }
+
+
+def _parse_cognitive_stages(content: str, theory_id: str) -> dict:
+    """
+    解析 AI 输出：先提取题干，再按 ## 阶段分割，最后按 【ZPD区】 提取支架。
+    """
+    from config import get_cognitive_stages, get_zpd_scaffold_types
+    import re
+
+    stages_def = get_cognitive_stages(theory_id)
+    scaffold = get_zpd_scaffold_types()
+
+    question = ""
+    parsed_stages = []
+
+    # 提取题干：【题干】... 直到第一个 ##
+    qm = re.search(r'【题干】\s*\n?(.+?)(?=\n## |\Z)', content, re.DOTALL)
+    if qm:
+        question = qm.group(1).strip()
+
+    # 按 ## 阶段分割
+    zone_pattern = r'##\s*(.+?)(?:\n|$)'
+    zone_parts = re.split(zone_pattern, content)
+
+    for i in range(1, len(zone_parts) - 1, 2):
+        stage_title = zone_parts[i].strip()
+        stage_body = zone_parts[i + 1].strip() if i + 1 < len(zone_parts) else ""
+
+        # 匹配阶段定义
+        matched_stage = None
+        for st in stages_def:
+            if st["name"] == stage_title:
+                matched_stage = st
+                break
+        if not matched_stage:
+            continue
+
+        # 提取区支架: 【远端发展区】... etc
+        zpd_blocks = {}
+        for zid, zinfo in scaffold.items():
+            zlabel = zinfo["label"]
+            zm = re.search(
+                rf'【{re.escape(zlabel)}】\s*\n?(.+?)(?=\n【|\Z)',
+                stage_body, re.DOTALL
+            )
+            if zm:
+                raw = zm.group(1).strip()
+                # 清理 AI 可能输出的风格前缀，如"知识讲解型支架："等
+                raw = re.sub(r'^.*?型[支架]?[：:]\s*', '', raw)
+                zpd_blocks[zid] = {
+                    "zone_id": zid,
+                    "label": zlabel,
+                    "icon": zinfo["icon"],
+                    "style": zinfo["style"],
+                    "content": raw,
+                }
+            else:
+                zpd_blocks[zid] = {
+                    "zone_id": zid,
+                    "label": zlabel,
+                    "icon": zinfo["icon"],
+                    "style": zinfo["style"],
+                    "content": "",
+                }
+
+        parsed_stages.append({
+            "id": matched_stage["id"],
+            "name": matched_stage["name"],
+            "order": matched_stage["order"],
+            "desc": matched_stage["desc"],
+            "zones": zpd_blocks,
+        })
+
+    parsed_stages.sort(key=lambda s: s["order"])
+
+    return {
+        "stages": parsed_stages,
+        "question": question,
+    }
 
 
 def _generate_single_level(

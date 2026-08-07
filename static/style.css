@@ -1036,3 +1036,107 @@ body {
         text-align: left;
     }
 }
+
+/* ============================================================
+   认知支架阶段卡片
+   ============================================================ */
+.stage-question-card {
+    border: 2px solid var(--gray-300);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.stage-question-header {
+    background: var(--gray-200);
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 1rem;
+}
+.stage-question-content {
+    padding: 16px;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+}
+.stage-group {
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.stage-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--gray-700);
+    color: #fff;
+}
+.stage-order {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.stage-name {
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+.stage-desc {
+    font-size: 0.8rem;
+    opacity: 0.75;
+}
+.stage-zones-row {
+    display: flex;
+    gap: 0;
+    padding: 0;
+}
+.stage-zone-card {
+    flex: 1;
+    min-width: 0;
+    border-right: 1px solid var(--gray-200);
+}
+.stage-zone-card:last-child {
+    border-right: none;
+}
+.stage-zone-header {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+}
+.stage-zone-header.zone-badge-distal { background: #e5e7eb; color: #374151; }
+.stage-zone-header.zone-badge-proximal { background: #fed7aa; color: #7c2d12; }
+.stage-zone-header.zone-badge-existing { background: #bbf7d0; color: #14532d; }
+.stage-zone-content {
+    padding: 12px;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    min-height: 80px;
+}
+.zone-card-distal { background: #f9fafb; }
+.zone-card-proximal { background: #fff7ed; }
+.zone-card-existing { background: #f0fdf4; }
+@media (max-width: 768px) {
+    .stage-zones-row {
+        flex-direction: column;
+    }
+    .stage-zone-card {
+        border-right: none;
+        border-bottom: 1px solid var(--gray-200);
+    }
+}

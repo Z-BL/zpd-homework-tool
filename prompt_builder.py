@@ -2,7 +2,9 @@
 提示词构建模块：根据作业类型填充提示词模板
 """
 
-from config import get_homework_type, get_theory, get_theory_levels, get_zpd_theory_mapping
+from config import (get_homework_type, get_theory, get_theory_levels,
+                       get_zpd_theory_mapping, get_cognitive_stages,
+                       get_zpd_scaffold_types)
 
 
 def build_system_prompt(homework_type_id: str, theory_id: str) -> str:
@@ -181,7 +183,33 @@ def _build_cognitive_support_prompt(
     cognitive_difficulty = (s.get("cognitive_difficulty") or "").strip()
 
     theory_name = theory['name']
-    theory_desc = theory.get('desc', '')
+    theory_id = theory['id']
+    stages = get_cognitive_stages(theory_id)
+    scaffold = get_zpd_scaffold_types()
+
+    # 构建阶段列表
+    stages_text = "\n".join(
+        f"   {st['order']}. {st['name']}——{st['desc']}" for st in stages
+    )
+    n_stages = len(stages)
+
+    # 构建 ZPD 支架风格说明
+    scaffold_lines = []
+    for zid in ["distal", "proximal", "existing"]:
+        sc = scaffold.get(zid, {})
+        scaffold_lines.append(
+            f"  - {sc['icon']} {sc['label']}（{sc['style']}）：{sc['desc']}"
+        )
+    scaffold_text = "\n".join(scaffold_lines)
+
+    # 构建输出格式
+    output_lines = ["【题干】"]
+    for st in stages:
+        output_lines.append(f"## {st['name']}")
+        for zid in ["distal", "proximal", "existing"]:
+            sc = scaffold.get(zid, {})
+            output_lines.append(f"【{sc['label']}】")
+    output_format = "\n".join(output_lines)
 
     parts = [f'我是{grade}{subject}的老师，我正在将一项最近发展区内的作业设计为"支架型作业"。']
 
@@ -193,19 +221,38 @@ def _build_cognitive_support_prompt(
     if cognitive_difficulty:
         parts.append(f"学生典型认知困难：\n{cognitive_difficulty}")
 
-    parts.append(f"""请基于「{theory_name}」（{theory_desc}）设计支架。
+    parts.append(f"""请基于最近发展区理论和「{theory_name}」设计支架型作业。
 
-要求：
-1. 保持原作业任务的核心目标不降低
-2. 不直接给出答案，而是将解题步骤拆解为「{theory_name}」的步骤，给学生提供引导性支架
-3. 支架设计应保留必要的思考空间，避免直接呈现完整解答
-4. 支架形态可包括：问题式（启发性提问）、示例式（类题示范）、讲解式（概念/方法说明）
-5. 最后要设计一个反思问题，帮助学生从元认知层面总结方法
+---
+【理论框架：{theory_name}】
 
-请按以下格式输出：
-- 题干
-- 步骤支架（每个步骤包含：支架引导语 + 支架答案/提示）
-- 反思问题""")
+{theory_name}将解题过程分为{n_stages}个阶段，由前到后依次为：
+{stages_text}
+
+---
+【ZPD 三区支架风格】
+
+针对每个解题阶段，请分别为三类学生设计不同类型支架：
+{scaffold_text}
+
+---
+【题目设计要求】
+
+1. 先呈现完整的题干（使用 LaTeX 格式书写数学公式）。
+
+2. 按{n_stages}个阶段依次组织，每个阶段内按三种 ZPD 支架风格分别输出：
+   - 远端发展区 → {scaffold.get('distal', {}).get('style', '')}：{scaffold.get('distal', {}).get('desc', '')}
+   - 最近发展区 → {scaffold.get('proximal', {}).get('style', '')}：{scaffold.get('proximal', {}).get('desc', '')}
+   - 现有发展区 → {scaffold.get('existing', {}).get('style', '')}：{scaffold.get('existing', {}).get('desc', '')}
+
+3. 所有数学公式使用 LaTeX 格式（行内 $...$，块级 $$...$$）。
+
+4. 每种支架保留必要的思考空间，不直接呈现完整解答。
+
+---
+【输出格式（严格要求）】
+
+{output_format}""")
 
     return "\n\n".join(parts)
 

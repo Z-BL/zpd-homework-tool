@@ -530,13 +530,17 @@ document.addEventListener("change", (e) => {
 // Step 5: 三层次作业
 // ============================================================
 function renderStep5() {
-    const isTheoryLevels = state.homeworkResults && state.homeworkResults.type === "theory_levels";
+    const hw = state.homeworkResults;
+    const isTheoryLevels = hw && hw.type === "theory_levels";
+    const isCognitive = hw && hw.type === "cognitive_stages";
 
-    if (state.homeworkResults) {
+    if (hw) {
         document.getElementById("generateActions").style.display = "none";
-        document.getElementById("zpdTabs").style.display = isTheoryLevels ? "none" : "block";
+        document.getElementById("zpdTabs").style.display = (isTheoryLevels || isCognitive) ? "none" : "block";
         if (isTheoryLevels) {
             renderTheoryLevels();
+        } else if (isCognitive) {
+            renderCognitiveStages();
         } else {
             renderTabs();
         }
@@ -594,8 +598,8 @@ async function generateHomework() {
         state.homeworkResults = data.homework;
         state.editedContents = {};
 
-        // 理论层级类型不需要 ZPD tabs，在 renderStep5 中处理
-        if (data.homework && data.homework.type === "theory_levels") {
+        // 结构化类型在 renderStep5 中处理
+        if (data.homework && (data.homework.type === "theory_levels" || data.homework.type === "cognitive_stages")) {
             renderStep5();
         } else {
             renderStep5();
@@ -826,6 +830,81 @@ function renderTheoryLevels() {
     container.innerHTML = html;
 
     // LaTeX 渲染
+    if (window.MathJax) {
+        MathJax.typesetPromise([container]).catch(console.error);
+    }
+}
+
+function renderCognitiveStages() {
+    const hw = state.homeworkResults;
+    if (!hw || hw.type !== "cognitive_stages") return;
+
+    const stages = hw.stages || [];
+    const question = hw.question || "";
+    const theoryId = hw.theory_id || "";
+    const isPolya = theoryId === "polya";
+
+    let container = document.getElementById("theoryLevelsContainer");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "theoryLevelsContainer";
+        container.className = "theory-levels-container";
+        document.getElementById("step5").appendChild(container);
+    }
+    container.style.display = "block";
+
+    let html = '';
+    html += '<div class="theory-header">';
+    html += '<h3>📊 基于<span class="theory-badge">' + (isPolya ? '波利亚解题理论' : '图尔敏论证模型') + '</span> × 最近发展区三区支架</h3>';
+    html += '<p class="theory-desc">' + (isPolya ? '4 个解题阶段' : '6 个论证阶段') + ' × 3 种 ZPD 支架风格</p>';
+    html += '</div>';
+
+    // 题干
+    if (question) {
+        html += '<div class="stage-question-card">';
+        html += '<div class="stage-question-header">📋 题干</div>';
+        html += '<div class="stage-question-content" id="content_question">' + escapeHtml(question) + '</div>';
+        html += '</div>';
+    }
+
+    // 阶段卡片
+    html += '<div class="zpd-zones-flow">';
+    for (let si = 0; si < stages.length; si++) {
+        const st = stages[si];
+        const zones = st.zones || {};
+        const zoneIds = ["distal", "proximal", "existing"];
+
+        html += '<div class="stage-group">';
+        html += '<div class="stage-header">';
+        html += '<span class="stage-order">' + st.order + '</span>';
+        html += '<span class="stage-name">' + escapeHtml(st.name) + '</span>';
+        html += '<span class="stage-desc">' + escapeHtml(st.desc) + '</span>';
+        html += '</div>';
+        html += '<div class="stage-zones-row">';
+
+        for (let zi = 0; zi < zoneIds.length; zi++) {
+            const zid = zoneIds[zi];
+            const z = zones[zid];
+            const badgeClass = 'zone-badge-' + zid;
+            const content = z ? (z.content || '') : '';
+
+            html += '<div class="stage-zone-card zone-card-' + zid + '">';
+            html += '<div class="stage-zone-header ' + badgeClass + '">';
+            html += '<span>' + (z ? (z.icon || '') + ' ' + escapeHtml(z.label || '') + ' · ' + escapeHtml(z.style || '') : '') + '</span>';
+            html += '</div>';
+            html += '<div class="stage-zone-content" id="content_' + st.id + '_' + zid + '">' + escapeHtml(content) + '</div>';
+            html += '</div>';
+        }
+
+        html += '</div></div>';
+        if (si < stages.length - 1) {
+            html += '<div class="zone-connector"><span>⬇</span></div>';
+        }
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+
     if (window.MathJax) {
         MathJax.typesetPromise([container]).catch(console.error);
     }

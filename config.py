@@ -147,6 +147,69 @@ def get_zpd_theory_mapping(theory_id: str) -> dict:
 
 
 # ============================================================
+# 认知支架阶段定义（用于认知支持型作业）
+# ============================================================
+COGNITIVE_STAGES = {
+    "polya": [
+        {"id": "understand", "name": "理解问题", "order": 1,
+         "desc": "分析题意，明确已知未知"},
+        {"id": "plan", "name": "制订计划", "order": 2,
+         "desc": "确定解题策略和步骤"},
+        {"id": "execute", "name": "执行计划", "order": 3,
+         "desc": "按计划逐步完成计算"},
+        {"id": "reflect", "name": "回顾反思", "order": 4,
+         "desc": "检验结果，总结方法"},
+    ],
+    "toulmin": [
+        {"id": "claim", "name": "主张", "order": 1,
+         "desc": "明确要证明的结论"},
+        {"id": "evidence", "name": "证据", "order": 2,
+         "desc": "收集支撑结论的数据"},
+        {"id": "reasoning", "name": "推理", "order": 3,
+         "desc": "从证据推导到结论的逻辑链"},
+        {"id": "support", "name": "支持", "order": 4,
+         "desc": "引用定理、公式作为依据"},
+        {"id": "rebuttal", "name": "反驳", "order": 5,
+         "desc": "检验论证是否存在漏洞"},
+        {"id": "qualifier", "name": "限定词", "order": 6,
+         "desc": "明确结论的适用条件和边界"},
+    ],
+}
+
+# ZPD 三区支架风格
+ZPD_SCAFFOLD_TYPES = {
+    "distal": {
+        "label": "远端发展区",
+        "icon": "🚀",
+        "style": "知识讲解型",
+        "desc": "提供完整概念讲解和基础引导，帮助学生理解题意",
+    },
+    "proximal": {
+        "label": "最近发展区",
+        "icon": "🎯",
+        "style": "逻辑帮助型",
+        "desc": "提供逻辑推理线索和方向性提示，不直接给出答案",
+    },
+    "existing": {
+        "label": "现有发展区",
+        "icon": "✅",
+        "style": "扩展思考型",
+        "desc": "提供开放性问题，引导独立思考和知识迁移",
+    },
+}
+
+
+def get_cognitive_stages(theory_id: str) -> list:
+    """获取认知阶段的定义"""
+    return COGNITIVE_STAGES.get(theory_id, [])
+
+
+def get_zpd_scaffold_types() -> dict:
+    """获取 ZPD 支架风格"""
+    return ZPD_SCAFFOLD_TYPES
+
+
+# ============================================================
 # 四种作业类型配置
 # ============================================================
 HOMEWORK_TYPES = [
