@@ -135,7 +135,7 @@ ZPD_TO_THEORY_MAPPING = {
             "label": "现有发展区 — 拓展挑战",
             "student_profile": "得分率 ≥ 0.7，已掌握该知识点",
             "goal": "独立完成高阶思维任务，迁移到新情境",
-            "level_ids": ["relational", "extended_abstract"],
+            "level_ids": ["extended_abstract"],
         },
     },
 }

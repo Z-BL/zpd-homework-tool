@@ -716,10 +716,10 @@ function _buildLevelCardHTML(lv, theoryId, zone) {
         : (lv.content || '');
 
     // 构建标签 HTML
-    const badges = allZids.map(function(zid) {
+    const badges = '<span class="zone-badge-group">' + allZids.map(function(zid) {
         const bc = _zoneBadgeClass(zid);
         return '<span class="btn btn-sm zone-badge ' + bc + '">' + _zoneIcon(zid) + ' ' + _zoneShortName(zid) + '</span>';
-    }).join(' ');
+    }).join('') + '</span>';
 
     return [
         '<div class="zone-level-card zone-card-' + primaryZid + '" id="levelCard_' + lv.id + '">',

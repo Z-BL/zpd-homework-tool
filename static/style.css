@@ -980,8 +980,13 @@ body {
 .zone-level-card .level-desc {
     color: var(--gray-500);
 }
-.zone-badge {
+.zone-badge-group {
     margin-left: auto;
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.zone-badge {
     flex-shrink: 0;
     pointer-events: none;
     border: none;
