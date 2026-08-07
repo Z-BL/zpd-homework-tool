@@ -154,7 +154,7 @@ HOMEWORK_TYPES = [
              "desc": "通过追问、澄清、反诘引导学生自己发现答案"}
         ],
         "supplement_fields": [
-            {"key": "homework_topic", "label": "作业题目/主题", "type": "textarea",
+            {"key": "original_question", "label": "作业原题目", "type": "textarea",
              "placeholder": "请输入学生要完成的具体作业题目和支架方案"},
             {"key": "teaching_goal", "label": "教学目标", "type": "textarea",
              "placeholder": "如：通过完成这道题，希望学生能够掌握二次方程的建模方法，"

@@ -67,11 +67,10 @@ def _build_potential_adaptive_prompt(
     knowledge_point: str, theory: dict, grade: str,
     subject: str, s: dict
 ) -> str:
-    original_question = s.get("original_question", "【未填写】")
-    teaching_goal = s.get("teaching_goal", "【未填写】")
-    student_data = s.get("student_data", "【未填写】")
+    original_question = (s.get("original_question") or "").strip()
+    teaching_goal = (s.get("teaching_goal") or "").strip()
+    student_data = (s.get("student_data") or "").strip()
 
-    # 获取理论层级
     levels = get_theory_levels(theory["id"])
     levels_text = ""
     for lv in levels:
@@ -80,19 +79,21 @@ def _build_potential_adaptive_prompt(
     theory_name = theory["name"]
     n_levels = len(levels)
 
-    return f"""我是{grade}{subject}的老师，正在设计一份基于最近发展区的精准作业。
+    # 构建可选段落
+    parts = [f"我是{grade}{subject}的老师，正在设计一份基于最近发展区的精准作业。"]
 
-作业原题目是：
-{original_question}
+    if original_question:
+        parts.append(f"作业原题目是：\n{original_question}")
 
-知识点是：{knowledge_point}
+    parts.append(f"知识点是：{knowledge_point}")
 
-教学目标：{teaching_goal}
+    if teaching_goal:
+        parts.append(f"教学目标：\n{teaching_goal}")
 
-学生学情数据：
-{student_data}
+    if student_data:
+        parts.append(f"学生学情数据：\n{student_data}")
 
-请依据最近发展区理论和{theory_name}完成以下任务：
+    parts.append(f"""请依据最近发展区理论和{theory_name}完成以下任务：
 
 ---
 【理论框架说明】
@@ -123,40 +124,42 @@ def _build_potential_adaptive_prompt(
 【输出格式】
 请严格按照以下格式输出（用「层级名称」作为每个层级的标题标记）：
 
-【记忆】
+【{levels[0]['name']}】
 （第 1 题的完整内容，含 LaTeX 公式）
 
-【理解】
+【{levels[1]['name'] if len(levels) > 1 else ''}】
 （第 2 题的完整内容，含 LaTeX 公式）
 
 ...（以此类推，直到最后一个层级）
 
 【{levels[-1]['name']}】
 （第{n_levels}题的完整内容，含 LaTeX 公式）
----"""
+---""")
+
+    return "\n\n".join(parts)
 
 
 def _build_cognitive_support_prompt(
     knowledge_point: str, theory: dict, grade: str,
     subject: str, s: dict
 ) -> str:
-    original_question = s.get("original_question", "【未填写】")
-    cognitive_difficulty = s.get("cognitive_difficulty", "【未填写】")
+    original_question = (s.get("original_question") or "").strip()
+    cognitive_difficulty = (s.get("cognitive_difficulty") or "").strip()
 
     theory_name = theory['name']
     theory_desc = theory.get('desc', '')
 
-    return f"""我是{grade}{subject}的老师，我正在将一项最近发展区内的作业设计为"支架型作业"。
+    parts = [f'我是{grade}{subject}的老师，我正在将一项最近发展区内的作业设计为"支架型作业"。']
 
-作业原始题目是：
-{original_question}
+    if original_question:
+        parts.append(f"作业原始题目是：\n{original_question}")
 
-所属知识点为：{knowledge_point}
+    parts.append(f"所属知识点为：{knowledge_point}")
 
-学生典型认知困难：
-{cognitive_difficulty}
+    if cognitive_difficulty:
+        parts.append(f"学生典型认知困难：\n{cognitive_difficulty}")
 
-请基于「{theory_name}」（{theory_desc}）设计支架。
+    parts.append(f"""请基于「{theory_name}」（{theory_desc}）设计支架。
 
 要求：
 1. 保持原作业任务的核心目标不降低
@@ -168,32 +171,31 @@ def _build_cognitive_support_prompt(
 请按以下格式输出：
 - 题干
 - 步骤支架（每个步骤包含：支架引导语 + 支架答案/提示）
-- 反思问题"""
+- 反思问题""")
+
+    return "\n\n".join(parts)
 
 
 def _build_dynamic_interactive_prompt(
     knowledge_point: str, theory: dict, grade: str,
     subject: str, s: dict
 ) -> str:
-    homework_topic = s.get("homework_topic", "【未填写】")
-    teaching_goal = s.get("teaching_goal", "【未填写】")
+    original_question = (s.get("original_question") or "").strip()
+    teaching_goal = (s.get("teaching_goal") or "").strip()
 
     theory_name = theory['name']
 
-    return f"""你是一名"最近发展区作业导师"，面向中学生开展一对一作业辅导。
+    parts = ['你是一名"最近发展区作业导师"，面向中学生开展一对一作业辅导。']
 
----
+    if original_question:
+        parts.append(f"【作业题目】\n{original_question}")
 
-【作业题目】
-{homework_topic}
+    parts.append(f"【学科与年级】\n{grade}{subject}")
 
-【学科与年级】
-{grade}{subject}
+    if teaching_goal:
+        parts.append(f"【本题的教学目标】\n{teaching_goal}")
 
-【本题的教学目标】
-{teaching_goal}
-
----
+    parts.append(f"""---
 
 你的任务不是直接告诉学生答案，而是根据学生回答判断其理解状态，并依据「{theory_name}」进行引导。你需要结合追问、澄清、提示、示例和反思，引导学生在最近发展区内完成作业。
 
@@ -231,38 +233,37 @@ def _build_dynamic_interactive_prompt(
 4. 本次使用过的支架：
 5. 学生思路发生的变化：
 6. 下一步建议完成的作业或练习：
-7. 给学生的一句学习建议："""
+7. 给学生的一句学习建议：""")
+
+    return "\n\n".join(parts)
 
 
 def _build_collaborative_inquiry_prompt(
     knowledge_point: str, theory: dict, grade: str,
     subject: str, s: dict
 ) -> str:
-    inquiry_theme = s.get("inquiry_theme", "【未填写】")
-    task_context = s.get("task_context", "【未填写】")
-    expected_output = s.get("expected_output", "【未填写】")
-    student_performance = s.get("student_performance", "【未填写】")
+    inquiry_theme = (s.get("inquiry_theme") or "").strip()
+    task_context = (s.get("task_context") or "").strip()
+    expected_output = (s.get("expected_output") or "").strip()
+    student_performance = (s.get("student_performance") or "").strip()
 
-    return f"""你是一个"协作探究作业编排系统"，面向中学生开展多智能体协作的探究式作业辅导。
-本系统包含多个专业智能体角色，各司其职，协同工作，帮助学生在最近发展区内完成探究任务。
+    parts = ['你是一个"协作探究作业编排系统"，面向中学生开展多智能体协作的探究式作业辅导。\n本系统包含多个专业智能体角色，各司其职，协同工作，帮助学生在最近发展区内完成探究任务。']
 
----
+    inquiry_info = []
+    if inquiry_theme:
+        inquiry_info.append(f"探究主题：{inquiry_theme}")
+    inquiry_info.append(f"学科与年级：{grade}{subject}")
+    inquiry_info.append(f"学习目标：围绕「{knowledge_point}」知识点，培养学生的探究能力和综合素养")
+    if task_context:
+        inquiry_info.append(f"任务情境：{task_context}")
+    if expected_output:
+        inquiry_info.append(f"预期成果形式：{expected_output}")
+    if student_performance:
+        inquiry_info.append(f"学生已有表现/学情：{student_performance}")
 
-【探究任务信息】
+    parts.append("【探究任务信息】\n\n" + "\n\n".join(inquiry_info))
 
-探究主题：{inquiry_theme}
-
-学科与年级：{grade}{subject}
-
-学习目标：围绕「{knowledge_point}」知识点，培养学生的探究能力和综合素养
-
-任务情境：{task_context}
-
-预期成果形式：{expected_output}
-
-学生已有表现/学情：{student_performance}
-
----
+    parts.append("""---
 
 你的任务不是直接给出探究结论，而是通过编排多个专业智能体角色，在探究式学习理论、科学论证理论和协作学习理论的指导下，为学生提供多维度的"他者"支持，帮助学生在最近发展区内完成探究任务。
 
@@ -297,7 +298,9 @@ def _build_collaborative_inquiry_prompt(
 2. 支持强度由弱到强：先启发 → 再提示 → 再示例 → 最后讲解
 3. 每次交互聚焦一个关键问题
 4. 学生在某阶段自主推进顺利时，减少干预
-5. 学生连续两次在同一问题上受阻时，升级支持强度"""
+5. 学生连续两次在同一问题上受阻时，升级支持强度""")
+
+    return "\n\n".join(parts)
 
 
 # ============================================================
