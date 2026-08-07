@@ -675,12 +675,12 @@ function _buildLevelCardHTML(lv, zone) {
         '    <span class="level-order">' + lv.order + '</span>',
         '    <span class="level-name">' + escapeHtml(lv.name) + '</span>',
         '    <span class="level-desc">' + escapeHtml(lv.desc) + '</span>',
-        '    <span class="zone-badge ' + badgeClass + '">' + zoneIcon + ' ' + escapeHtml(zoneProfile) + '</span>',
         '  </div>',
         '  <div class="level-card-content" id="content_' + lv.id + '">' + escapeHtml(content) + '</div>',
         '  <div class="level-card-actions">',
         '    <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>',
         '    <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>',
+        '    <span class="zone-badge ' + badgeClass + '">' + zoneIcon + ' ' + escapeHtml(zoneProfile) + '</span>',
         '  </div>',
         '</div>',
     ].join('\n');
@@ -691,26 +691,19 @@ function _buildZoneGroupHTML(zone) {
     const badgeClass = _zoneBadgeClass(zid);
     const icon = zone.icon || '';
     const label = escapeHtml(zone.zone_label || zid);
-    const profile = escapeHtml(zone.student_profile || '');
     const goal = escapeHtml(zone.goal || '');
     const levels = zone.levels || [];
 
     const levelCards = [];
     for (let li = 0; li < levels.length; li++) {
         levelCards.push(_buildLevelCardHTML(levels[li], zone));
-        if (li < levels.length - 1) {
-            levelCards.push('<div class="level-connector"><span>⬇ 递进支架</span></div>');
-        }
     }
 
     return [
         '<div class="zone-group">',
         '  <div class="zone-header ' + badgeClass + '">',
         '    <span class="zone-icon">' + icon + '</span>',
-        '    <div class="zone-info">',
-        '      <span class="zone-label">' + label + '</span>',
-        '      <span class="zone-profile">👤 ' + profile + '</span>',
-        '    </div>',
+        '    <span class="zone-label">' + label + '</span>',
         '    <span class="zone-goal">' + goal + '</span>',
         '  </div>',
         '  <div class="zone-levels">',
@@ -757,9 +750,6 @@ function renderTheoryLevels() {
         html += '<div class="zpd-zones-flow">';
         for (let zi = 0; zi < zones.length; zi++) {
             html += _buildZoneGroupHTML(zones[zi]);
-            if (zi < zones.length - 1) {
-                html += '<div class="zone-connector"><span>⬇ 下一个发展区</span></div>';
-            }
         }
         html += '</div>';
     } else {
@@ -781,9 +771,6 @@ function renderTheoryLevels() {
             html += '<button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>';
             html += '<button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>';
             html += '</div></div>';
-            if (i < levels.length - 1) {
-                html += '<div class="level-connector"><span>⬇ 递进支架</span></div>';
-            }
         }
         html += '</div>';
     }
