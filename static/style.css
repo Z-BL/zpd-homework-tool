@@ -959,6 +959,27 @@ body {
 .zone-level-card .level-desc {
     color: var(--gray-500);
 }
+.zone-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.zone-badge-distal {
+    background: #fef3c7;
+    color: #d97706;
+}
+.zone-badge-proximal {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+.zone-badge-existing {
+    background: #d1fae5;
+    color: #047857;
+}
 .zone-level-card .level-card-content {
     background: #fff;
 }

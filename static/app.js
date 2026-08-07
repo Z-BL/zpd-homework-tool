@@ -703,12 +703,18 @@ function renderTheoryLevels() {
                             <span class="zone-goal">${escapeHtml(zone.goal || '')}</span>
                         </div>
                         <div class="zone-levels">
-                            ${(zone.levels || []).map((lv, li) => `
+                            ${(zone.levels || []).map((lv, li) => {
+                                const zoneIcon = zone.icon || '';
+                                const zoneProfile = escapeHtml(zone.student_profile || '');
+                                const zid = zone.zone_id || '';
+                                const badgeClass = zid === 'distal' ? 'zone-badge-distal' : zid === 'proximal' ? 'zone-badge-proximal' : 'zone-badge-existing';
+                                return `
                                 <div class="zone-level-card" id="levelCard_${lv.id}">
                                     <div class="level-card-header">
                                         <span class="level-order">${lv.order}</span>
                                         <span class="level-name">${escapeHtml(lv.name)}</span>
                                         <span class="level-desc">${escapeHtml(lv.desc)}</span>
+                                        <span class="zone-badge ${badgeClass}">${zoneIcon} ${zoneProfile}</span>
                                     </div>
                                     <div class="level-card-content" id="content_${lv.id}">
                                         ${escapeHtml(state.editedContents[lv.id] !== undefined ? state.editedContents[lv.id] : lv.content)}
@@ -719,7 +725,7 @@ function renderTheoryLevels() {
                                     </div>
                                 </div>
                                 ${li < (zone.levels || []).length - 1 ? '<div class="level-connector"><span>⬇ 递进支架</span></div>' : ''}
-                            `).join("")}
+                            `; }).join("")}
                         </div>
                     </div>
                     ${zi < zones.length - 1 ? '<div class="zone-connector"><span>⬇ 下一个发展区</span></div>' : ''}
