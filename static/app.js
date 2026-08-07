@@ -659,13 +659,15 @@ function renderTheoryLevels() {
     const hw = state.homeworkResults;
     if (!hw || hw.type !== "theory_levels") return;
 
+    const zones = hw.zones || [];
     const levels = hw.levels || [];
-    if (levels.length === 0) {
+
+    if (zones.length === 0 && levels.length === 0) {
         document.getElementById("zpdTabs").style.display = "none";
         return;
     }
 
-    // 确保理论层级容器存在
+    // 确保容器存在
     let container = document.getElementById("theoryLevelsContainer");
     if (!container) {
         container = document.createElement("div");
@@ -678,19 +680,62 @@ function renderTheoryLevels() {
     const theoryId = hw.theory_id || "";
     const isBloom = theoryId === "bloom";
 
-    container.innerHTML = `
-        <div class="theory-header">
-            <h3>📊 基于<span class="theory-badge">${isBloom ? '布卢姆认知目标分类' : 'SOLO分类理论'}</span>的递进题目序列</h3>
-            <p class="theory-desc">
-                ${isBloom
-                    ? '共 6 个认知层级，从记忆到创造逐级递进，前一道题是后一道的认知支架'
-                    : '共 5 个结构层级，从单点信息到抽象扩展逐步深化，前一道题为后一道搭建思维阶梯'}
-            </p>
-        </div>
-        <div class="theory-levels-flow">
-            ${levels.map((lv, i) => `
-                <div class="level-card-wrapper">
-                    <div class="level-card" id="levelCard_${lv.id}">
+    // 如果有 zones，按区渲染；否则回退到平铺
+    if (zones.length > 0) {
+        container.innerHTML = `
+            <div class="theory-header">
+                <h3>📊 基于<span class="theory-badge">${isBloom ? '布卢姆认知目标分类' : 'SOLO分类理论'}</span>× 最近发展区三层级作业</h3>
+                <p class="theory-desc">
+                    ${isBloom
+                        ? '共 3 个 ZPD 区 × 6 个认知层级，各区面向不同水平学生，区内题目逐级递进'
+                        : '共 3 个 ZPD 区 × 5 个结构层级，各区面向不同水平学生，区内题目逐级递进'}
+                </p>
+            </div>
+            <div class="zpd-zones-flow">
+                ${zones.map((zone, zi) => `
+                    <div class="zone-group">
+                        <div class="zone-header">
+                            <span class="zone-icon">${zone.icon || ''}</span>
+                            <div class="zone-info">
+                                <span class="zone-label">${escapeHtml(zone.zone_label || zone.zone_id)}</span>
+                                <span class="zone-profile">👤 ${escapeHtml(zone.student_profile || '')}</span>
+                            </div>
+                            <span class="zone-goal">${escapeHtml(zone.goal || '')}</span>
+                        </div>
+                        <div class="zone-levels">
+                            ${(zone.levels || []).map((lv, li) => `
+                                <div class="zone-level-card" id="levelCard_${lv.id}">
+                                    <div class="level-card-header">
+                                        <span class="level-order">${lv.order}</span>
+                                        <span class="level-name">${escapeHtml(lv.name)}</span>
+                                        <span class="level-desc">${escapeHtml(lv.desc)}</span>
+                                    </div>
+                                    <div class="level-card-content" id="content_${lv.id}">
+                                        ${escapeHtml(state.editedContents[lv.id] !== undefined ? state.editedContents[lv.id] : lv.content)}
+                                    </div>
+                                    <div class="level-card-actions">
+                                        <button class="btn btn-sm btn-secondary" onclick="editTheoryLevel('${lv.id}')">📝 编辑</button>
+                                        <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel('${lv.id}')">🔄 重新生成</button>
+                                    </div>
+                                </div>
+                                ${li < (zone.levels || []).length - 1 ? '<div class="level-connector"><span>⬇ 递进支架</span></div>' : ''}
+                            `).join("")}
+                        </div>
+                    </div>
+                    ${zi < zones.length - 1 ? '<div class="zone-connector"><span>⬇ 下一个发展区</span></div>' : ''}
+                `).join("")}
+            </div>
+        `;
+    } else {
+        // 回退：平铺层级卡片
+        container.innerHTML = `
+            <div class="theory-header">
+                <h3>📊 基于<span class="theory-badge">${isBloom ? '布卢姆认知目标分类' : 'SOLO分类理论'}</span>的递进题目序列</h3>
+                <p class="theory-desc">${isBloom ? '共 6 个认知层级' : '共 5 个结构层级'}，前一道题是后一道的认知支架</p>
+            </div>
+            <div class="zpd-zones-flow">
+                ${levels.map((lv, i) => `
+                    <div class="zone-level-card" id="levelCard_${lv.id}">
                         <div class="level-card-header">
                             <span class="level-order">${lv.order}</span>
                             <span class="level-name">${escapeHtml(lv.name)}</span>
@@ -704,11 +749,11 @@ function renderTheoryLevels() {
                             <button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel('${lv.id}')">🔄 重新生成</button>
                         </div>
                     </div>
-                    ${i < levels.length - 1 ? '<div class="level-connector"><span>⬇</span></div>' : ''}
-                </div>
-            `).join("")}
-        </div>
-    `;
+                    ${i < levels.length - 1 ? '<div class="level-connector"><span>⬇ 递进支架</span></div>' : ''}
+                `).join("")}
+            </div>
+        `;
+    }
 
     // LaTeX 渲染
     if (window.MathJax) {

@@ -95,6 +95,58 @@ def get_theory_levels(theory_id: str) -> list:
 
 
 # ============================================================
+# ZPD 区 → 理论层级映射（用于潜能适配型作业的分区生成）
+# ============================================================
+ZPD_TO_THEORY_MAPPING = {
+    "bloom": {
+        "distal": {
+            "label": "远端发展区 — 基础入门",
+            "student_profile": "得分率 < 0.3，尚未建立基本理解",
+            "goal": "提供知识讲解和引导，帮助学生建立基本概念",
+            "level_ids": ["remember", "understand"],
+        },
+        "proximal": {
+            "label": "最近发展区 — 核心学习区",
+            "student_profile": "得分率 0.3–0.7，在适当支持下能够完成",
+            "goal": "在支架支持下逐步推进认知复杂度，实现认知跃迁",
+            "level_ids": ["apply", "analyze"],
+        },
+        "existing": {
+            "label": "现有发展区 — 拓展挑战",
+            "student_profile": "得分率 ≥ 0.7，已掌握该知识点",
+            "goal": "独立完成高阶认知任务，推动向更深层次发展",
+            "level_ids": ["evaluate", "create"],
+        },
+    },
+    "solo": {
+        "distal": {
+            "label": "远端发展区 — 基础入门",
+            "student_profile": "得分率 < 0.3，尚未建立基本理解",
+            "goal": "提供知识讲解和引导，帮助学生建立基本概念",
+            "level_ids": ["prestructural", "unistructural"],
+        },
+        "proximal": {
+            "label": "最近发展区 — 核心学习区",
+            "student_profile": "得分率 0.3–0.7，在适当支持下能够完成",
+            "goal": "在支架支持下逐步推进思维结构复杂度",
+            "level_ids": ["multistructural", "relational"],
+        },
+        "existing": {
+            "label": "现有发展区 — 拓展挑战",
+            "student_profile": "得分率 ≥ 0.7，已掌握该知识点",
+            "goal": "独立完成高阶思维任务，迁移到新情境",
+            "level_ids": ["relational", "extended_abstract"],
+        },
+    },
+}
+
+
+def get_zpd_theory_mapping(theory_id: str) -> dict:
+    """获取指定理论的 ZPD 区映射"""
+    return ZPD_TO_THEORY_MAPPING.get(theory_id, {})
+
+
+# ============================================================
 # 四种作业类型配置
 # ============================================================
 HOMEWORK_TYPES = [

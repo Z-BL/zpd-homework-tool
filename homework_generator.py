@@ -122,26 +122,109 @@ def generate_by_theory_levels(
 
 def _parse_theory_levels(content: str, theory_id: str) -> dict:
     """
-    尝试按层级标记解析 AI 输出。
-    层级标记格式：【层级名称】
+    解析 AI 输出：先按 ZPD 区分割（## 标记），再提取各区内理论层级（【】标记）。
     """
+    from config import get_theory_levels, get_zpd_theory_mapping
+    import re
+
+    theory_levels = get_theory_levels(theory_id)
+    mapping = get_zpd_theory_mapping(theory_id)
+    zones = []
+
+    # 按 ZPD 区分割：## 区名
+    zone_pattern = r'##\s*(.+?)\n'
+    zone_parts = re.split(zone_pattern, content)
+
+    if len(zone_parts) < 3:
+        # 没有匹配到 ZPD 区格式，回退到旧解析方式
+        return _parse_flat_levels(content, theory_id)
+
+    # zone_parts[0] 是第一个 ## 前的内容（忽略）
+    zone_order = ["distal", "proximal", "existing"]
+    for i in range(1, len(zone_parts) - 1, 2):
+        zone_title = zone_parts[i].strip()
+        zone_body = zone_parts[i + 1].strip() if i + 1 < len(zone_parts) else ""
+
+        # 匹配 ZPD 区
+        matched_zid = None
+        for zid in zone_order:
+            z = mapping.get(zid, {})
+            z_label = z.get("label", "")
+            if z_label and zone_title.startswith(z_label[:6]):
+                matched_zid = zid
+                break
+        if not matched_zid:
+            for zid in zone_order:
+                if zid in zone_title.lower() or zone_title in ["远端", "最近", "现有"]:
+                    matched_zid = zid
+                    break
+        if not matched_zid:
+            matched_zid = zone_order[len(zones)] if len(zones) < 3 else zone_title
+
+        # 提取区内理论层级
+        level_pattern = r'【(.+?)】'
+        level_parts = re.split(level_pattern, zone_body)
+        zone_levels = []
+
+        for j in range(1, len(level_parts) - 1, 2):
+            lname = level_parts[j].strip()
+            lbody = level_parts[j + 1].strip() if j + 1 < len(level_parts) else ""
+
+            matched_lv = None
+            for lv in theory_levels:
+                if lv["name"] == lname:
+                    matched_lv = lv
+                    break
+
+            if matched_lv:
+                zone_levels.append({
+                    "id": matched_lv["id"],
+                    "name": matched_lv["name"],
+                    "order": matched_lv["order"],
+                    "desc": matched_lv["desc"],
+                    "content": lbody,
+                })
+
+        zones.append({
+            "zone_id": matched_zid,
+            "zone_label": mapping.get(matched_zid, {}).get("label", zone_title),
+            "student_profile": mapping.get(matched_zid, {}).get("student_profile", ""),
+            "goal": mapping.get(matched_zid, {}).get("goal", ""),
+            "icon": _zpd_zone_icon(matched_zid),
+            "levels": zone_levels,
+        })
+
+    # 若未能解析出任何区，回退
+    if not zones:
+        return _parse_flat_levels(content, theory_id)
+
+    # 收集全部层级用于扁平列表
+    all_levels = []
+    for z in zones:
+        all_levels.extend(z["levels"])
+
+    return {
+        "zones": zones,
+        "levels": all_levels,
+        "raw": content,
+    }
+
+
+def _parse_flat_levels(content: str, theory_id: str) -> dict:
+    """回退解析：按理论层级标记平铺（旧格式兼容）"""
     from config import get_theory_levels
     import re
 
     theory_levels = get_theory_levels(theory_id)
     parsed_levels = []
 
-    # 按 【...】 标记拆分
     pattern = r'【(.+?)】'
     parts = re.split(pattern, content)
 
-    # parts[0] 是第一个标记之前的内容（前言），跳过
-    # 之后是 name1, content1, name2, content2, ...
     for i in range(1, len(parts) - 1, 2):
         name = parts[i].strip()
         body = parts[i + 1].strip() if i + 1 < len(parts) else ""
 
-        # 匹配理论层级
         matched = None
         for lv in theory_levels:
             if lv["name"] == name:
@@ -157,25 +240,19 @@ def _parse_theory_levels(content: str, theory_id: str) -> dict:
                 "content": body,
             })
 
-    # 若未能解析出任何层级，返回完整内容作为单一项
     if not parsed_levels:
-        parsed_levels = [
-            {
-                "id": "full",
-                "name": "全部内容",
-                "order": 1,
-                "desc": "",
-                "content": content,
-            }
-        ]
+        parsed_levels = [{
+            "id": "full", "name": "全部内容",
+            "order": 1, "desc": "", "content": content,
+        }]
 
-    # 按 order 排序
     parsed_levels.sort(key=lambda x: x["order"])
+    return {"levels": parsed_levels, "raw": content}
 
-    return {
-        "levels": parsed_levels,
-        "raw": content,
-    }
+
+def _zpd_zone_icon(zid: str) -> str:
+    icons = {"distal": "🚀", "proximal": "🎯", "existing": "✅"}
+    return icons.get(zid, "")
 
 
 def _generate_single_level(

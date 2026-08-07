@@ -2,7 +2,7 @@
 提示词构建模块：根据作业类型填充提示词模板
 """
 
-from config import get_homework_type, get_theory, get_theory_levels
+from config import get_homework_type, get_theory, get_theory_levels, get_zpd_theory_mapping
 
 
 def build_system_prompt(homework_type_id: str, theory_id: str) -> str:
@@ -71,15 +71,36 @@ def _build_potential_adaptive_prompt(
     teaching_goal = (s.get("teaching_goal") or "").strip()
     student_data = (s.get("student_data") or "").strip()
 
-    levels = get_theory_levels(theory["id"])
-    levels_text = ""
-    for lv in levels:
-        levels_text += f"   {lv['order']}. {lv['name']}——{lv['desc']}\n"
-
     theory_name = theory["name"]
-    n_levels = len(levels)
+    theory_id = theory["id"]
+    mapping = get_zpd_theory_mapping(theory_id)
 
-    # 构建可选段落
+    # 构建理论层级总览
+    all_levels = get_theory_levels(theory_id)
+    levels_text = "\n".join(
+        f"   {lv['order']}. {lv['name']}——{lv['desc']}" for lv in all_levels
+    )
+
+    # 构建 ZPD 区输出格式
+    zone_order = ["distal", "proximal", "existing"]
+    output_format_lines = []
+    for zid in zone_order:
+        zone = mapping.get(zid, {})
+        zone_label = zone.get("label", zid)
+        level_ids = zone.get("level_ids", [])
+        level_names = []
+        for lid in level_ids:
+            lv = next((l for l in all_levels if l["id"] == lid), None)
+            level_names.append(lv["name"] if lv else lid)
+
+        output_format_lines.append(f"## {zone_label}")
+        for i, nm in enumerate(level_names):
+            output_format_lines.append(f"【{nm}】")
+            output_format_lines.append(f"（面向 {zone.get('student_profile', '')} 学生，共 1 道题）")
+        output_format_lines.append("")
+    output_format_text = "\n".join(output_format_lines)
+
+    # 构建可选用部分
     parts = [f"我是{grade}{subject}的老师，正在设计一份基于最近发展区的精准作业。"]
 
     if original_question:
@@ -93,80 +114,68 @@ def _build_potential_adaptive_prompt(
     if student_data:
         parts.append(f"学生学情数据：\n{student_data}")
 
-    # ZPD 学情分层（有数据时）
-    zpd_analysis = ""
-    if student_data:
-        zpd_analysis = f"""根据学生学情数据，请先对班级进行最近发展区三层级划分：
-  - 现有发展区：得分率 ≥ 0.7，已掌握该知识点的学生
-  - 最近发展区：得分率 0.3–0.7，在适当支持下能够完成的学生
-  - 远端发展区：得分率 < 0.3，尚未建立基本理解的学生"""
-    else:
-        zpd_analysis = """请按以下最近发展区三层级框架组织题目设计思路：
-  - 现有发展区（已掌握）：适合挑战性高、拓展性强的题目
-  - 最近发展区（需支持）：适合有支架引导、认知递进的题目
-  - 远端发展区（未掌握）：适合入门基础、建立信心的题目"""
+    # 构建各区设计要求
+    zone_requirements = []
+    for zid in zone_order:
+        zone = mapping.get(zid, {})
+        zone_label = zone.get("label", zid)
+        student_profile = zone.get("student_profile", "")
+        goal = zone.get("goal", "")
+        level_ids = zone.get("level_ids", [])
+        level_names = []
+        for lid in level_ids:
+            lv = next((l for l in all_levels if l["id"] == lid), None)
+            level_names.append(lv["name"] if lv else lid)
+        names_str = "、".join(level_names)
+        zone_requirements.append(
+            f"  - 【{zone_label}】（{student_profile}）→ {goal}\n"
+            f"    对应理论层级：{names_str}，为该区生成 {len(level_ids)} 道题"
+        )
+    zone_req_text = "\n".join(zone_requirements)
 
-    parts.append(f"""请同时依据「最近发展区理论」和「{theory_name}」完成以下任务。
-
----
-【理论框架一：最近发展区（ZPD）】
-
-最近发展区理论将学生的学习状态分为三个区间：
-{zpd_analysis}
-
-ZPD 设计原则：
-- 题目应覆盖三个发展区，让不同水平的学生都能在适合自己的区间内获得成长
-- 低层级题目（教程式、基础题）面向远端发展区学生，帮助他们建立基本理解
-- 中层级题目（探究式、应用型）面向最近发展区学生，在支架支持下完成认知跃迁
-- 高层级题目（挑战式、创造型）面向现有发展区学生，推动向更高阶思维发展
-- 现有发展区和最近发展区的题目应占据主体（约 2/3）
+    parts.append(f"""请同时依据「最近发展区理论」和「{theory_name}」完成以下任务。两种理论不是并列关系——ZPD 是顶层框架，{theory_name} 是每个 ZPD 区内的认知递进路径。
 
 ---
-【理论框架二：{theory_name}】
+【总体框架】
 
-{theory_name}将认知过程分为{n_levels}个层级，由低到高依次为：
+本作业将学生按最近发展区划分为三个群体，每个群体完成与其能力匹配的题目：
+
+{zone_req_text}
+
+---
+【{theory_name} 层级总览】
+
+{theory_name}的全部层级由低到高为：
 {levels_text}
-这{n_levels}个层级之间有严格的递进关系：低层级是高层级的基础，每一层建立在前面所有层级之上。
 
 ---
 【题目设计要求】
 
-1. 请为以上{n_levels}个层级各设计 1 道题目，共 {n_levels} 道题。
+1. 严格按照上述三个 ZPD 区分组输出，每个区内的题目按 {theory_name} 层级顺序排列。
 
-2. 将 ZPD 三层级与{theory_name}的{n_levels}层级相结合：
-   - 低层级题目（{levels[0]['name']}）→ 面向远端发展区，提供完整的知识讲解和引导
-   - 中层级题目 → 面向最近发展区，在支架支持下逐步推进认知复杂度
-   - 高层级题目（{levels[-1]['name']}）→ 面向现有发展区，要求独立完成高阶认知任务
+2. 每道题必须明确标注面向的学生画像，题目难度与目标学生的发展区匹配：
+   - 远端发展区的题目附带简要知识讲解，以引导入门为主
+   - 最近发展区的题目提供适度支架，促进学生能力跃迁
+   - 现有发展区的题目要求独立完成，具有挑战性和拓展性
 
-3. 题目间必须具备递进支撑关系：
-   - 第 1 题是最基础的入门题，帮助回忆/定位知识点
-   - 每一道题都是紧接着的下一道题的"认知支架"——前一题的解题思路或结论可以作为后一题的思考起点
-   - 从第 1 题到第{n_levels}题，认知复杂度逐步提升，每道题都在前一道的基础上增加新的思维挑战
+3. 同一 ZPD 区内的题目间具备递进关系：前一道题为后一道搭认知支架。
 
-4. 按照{theory_name}的层级顺序依次编排题目，不得跳过任何层级。
+4. 三个 ZPD 区之间由易到难递进，但不需要跨区建立题目间的承接关系（各区面向不同学生群体）。
 
-5. 所有数学公式、符号、表达式必须使用 LaTeX 格式：
-   - 行内公式用 $...$ 包裹（如 $x^2 + 2x + 1 = 0$）
+5. 所有数学公式必须使用 LaTeX 格式：
+   - 行内公式用 $...$ 包裹
    - 独立公式用 $$...$$ 包裹
-   - 分数用 \\frac，根号用 \\sqrt，上下标用 ^ 和 _
 
-6. 每道题必须有实际应用背景，贴近生活，体现该知识点的实用价值。
+6. 每道题有实际应用背景，体现知识点的实用价值。
 
 ---
-【输出格式】
-请严格按照以下格式输出（用「层级名称」作为每个层级的标题标记）：
+【输出格式（严格要求）】
 
-【{levels[0]['name']}】
-（第 1 题的完整内容，含 LaTeX 公式）
+请严格按照以下格式输出，使用「## ZPD区名称」（两个 # 号）标记每个区，用「【层级名称】」标记每道题：
 
-【{levels[1]['name'] if len(levels) > 1 else ''}】
-（第 2 题的完整内容，含 LaTeX 公式）
+{output_format_text}
 
-...（以此类推，直到最后一个层级）
-
-【{levels[-1]['name']}】
-（第{n_levels}题的完整内容，含 LaTeX 公式）
----""")
+注意：不要输出任何与作业无关的额外说明。""")
 
     return "\n\n".join(parts)
 
