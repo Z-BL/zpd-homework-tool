@@ -777,6 +777,9 @@ function renderTheoryLevels() {
             html += '<button class="btn btn-sm btn-secondary" onclick="editTheoryLevel(\'' + lv.id + '\')">📝 编辑</button>';
             html += '<button class="btn btn-sm btn-warning" onclick="regenerateTheoryLevel(\'' + lv.id + '\')">🔄 重新生成</button>';
             html += '</div></div>';
+            if (i < levels.length - 1) {
+                html += '<div class="level-connector"><span>⬇ 递进</span></div>';
+            }
         }
         html += '</div>';
     }
